@@ -313,7 +313,6 @@ function tryCalcStation(s, lib){
   if(ctrl.length<2) return null;
   const hp=helmert(ctrl);
   if(!hp) return null;
-  if(hp.scaleErr) return {error:`縮放比例異常（${hp.scale.toFixed(6)}，合理範圍 0.950～1.050），請檢查控制點資料是否正確`,hp};
   const pts=[];
   parsed.forEach(p=>{
     const E=hp.a*p.lx-hp.b*p.ly+hp.tx,N=hp.b*p.lx+hp.a*p.ly+hp.ty,H=hp.kz*p.lz+hp.dz;
@@ -469,16 +468,14 @@ function runAll(){
       if(results[si]!==null) continue;
       const s=stations[si];
       const res=tryCalcStation(s, lib);
-      if(res&&!res.error){
+      if(res){
         results[si]=res;
         res.pts.forEach(p=>{ lib[p.name]={E:p.E,N:p.N,H:p.H}; });
         changed=true;
-        const scaleNote=res.hp.scaleWarn?` ⚠ 縮放${res.hp.scale.toFixed(5)}`:'';
+        const scaleNote=res.hp.scaleErr
+          ?` ⚠ 縮放異常 ${res.hp.scale.toFixed(5)}`
+          :res.hp.scaleWarn?` ⚠ 縮放偏離 ${res.hp.scale.toFixed(5)}`:'';
         roundLog.push(`<span class="ok">✓ ${s.name}（控制點 ${res.hp.n} 個，RMS 3D=${res.hp.rms3D.toFixed(4)}m${scaleNote}）</span>`);
-      } else if(res&&res.error){
-        results[si]={error:res.error, hp:res.hp};
-        roundLog.push(`<span class="err">✕ ${s.name}：${res.error}</span>`);
-        changed=true; // 標記為已處理（錯誤），不再重試
       } else {
         roundLog.push(`<span class="skip">… ${s.name}（控制點不足，待下一輪）</span>`);
       }
@@ -552,22 +549,12 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       html+=`<div class="err-box">✕ ${s.name}：控制點不足，無法計算（請確認是否有 2 個以上相同點名與其他站連接）</div>`;
       return;
     }
-    if(r.error){
-      const hp=r.hp;
-      const scaleCls=hp.scaleErr?'rms-bad':'rms-warn';
-      html+=`<div class="err-box">
-        ✕ ${s.name}：${r.error}
-        <div style="margin-top:6px;font-size:11px">
-          縮放比例：<span class="${scaleCls}">${hp.scale.toFixed(8)}</span>　
-          旋轉：${hp.rot.toFixed(4)}°　控制點數：${hp.n}
-        </div>
-      </div>`;
-      return;
-    }
     const hp=r.hp;
-    const scaleBadge=hp.scaleWarn
-      ? `<span class="badge" style="background:#fdf0d8;color:#5c3a05">⚠ 縮放 ${hp.scale.toFixed(6)}</span>`
-      : `<span class="badge b-gray">縮放 ${hp.scale.toFixed(8)}</span>`;
+    const scaleBadge=hp.scaleErr
+      ? `<span class="badge" style="background:#fdeaea;color:#8a2020">⚠ 縮放異常 ${hp.scale.toFixed(6)}</span>`
+      : hp.scaleWarn
+        ? `<span class="badge" style="background:#fdf0d8;color:#5c3a05">⚠ 縮放偏離 ${hp.scale.toFixed(6)}</span>`
+        : `<span class="badge b-gray">縮放 ${hp.scale.toFixed(8)}</span>`;
     html+=`<div class="result-stn-header">
       <span style="font-size:14px;font-weight:600;color:var(--blue)">${s.name}</span>
       <span class="badge b-gray">控制點 ${hp.n}</span>
@@ -683,47 +670,51 @@ function loadExample(){
   document.getElementById('result-area').innerHTML='';
 
   // 測站1：傳遞站（前端無GPS，由測站2向前傳遞）
+  // 與測站2共享 P1、P2
   addStation('測站1',false,
-`P1,-80.000,-50.000,8.500,共同點
-P2,-50.000,-20.000,9.000,共同點
-T0,-90.000,10.000,8.800,電力孔蓋`);
+`P1,0.000,0.000,10.250,共同點
+P2,95.697,29.020,10.820,共同點
+T0a,-49.541,39.315,9.650,電力孔蓋
+T0b,-47.848,-14.511,9.320,水溝蓋`);
 
-  // 測站2：中間站有GPS（向前傳遞給測站1，向後傳遞給測站3）
+  // 測站2：中間站有GPS
+  // 向前傳遞給測站1（共享P1/P2），向後傳遞給測站3（共享S1/S2/S3）
   addStation('測站2',true,
 `P1,0.000,0.000,10.250,控制點
-P2,30.000,30.000,10.800,控制點
-A1,125.340,89.210,12.780,控制點
-T1,55.200,120.400,11.900,電力孔蓋
-T2,88.750,45.600,13.200,電信孔蓋
-S1,30.000,160.000,13.500,共同點
-S2,70.000,190.000,14.200,共同點
-S3,10.000,210.000,14.800,共同點`,
-`P1,246440.110,2665050.330,52.800
-P2,246470.220,2665080.440,53.350
-A1,246648.120,2665222.890,54.710`);
+P2,80.000,60.000,10.820,控制點
+A1,150.000,30.000,11.340,控制點
+T1,55.000,120.000,10.900,電力孔蓋
+T2,90.000,45.000,11.200,電信孔蓋
+S1,30.000,160.000,11.650,共同點
+S2,70.000,190.000,12.100,共同點
+S3,10.000,210.000,12.380,共同點`,
+`P1,246440.000,2665050.000,52.250
+P2,246501.745,2665128.661,52.820
+A1,246577.124,2665117.801,53.340`);
 
   // 測站3：傳遞站
+  // 與測站2共享S1/S2/S3，與測站4共享B1/B2/B3
   addStation('測站3',false,
-`S1,-20.000,0.000,2.500,共同點
-S2,20.000,30.000,3.200,共同點
-S3,-40.000,50.000,3.800,共同點
-T3,50.000,80.000,5.100,路邊線
-T4,-10.000,110.000,6.300,水溝蓋
-T5,80.000,60.000,4.700,電力孔蓋
-B1,120.000,50.000,2.100,共同點
-B2,80.000,80.000,2.600,共同點
-B3,50.000,100.000,3.100,共同點`);
+`S1,0.000,0.000,11.650,共同點
+S2,44.601,22.598,12.100,共同點
+S3,-11.014,52.714,12.380,共同點
+T3,90.369,-5.780,11.900,路邊線
+T4,69.507,48.669,12.450,水溝蓋
+T5,124.551,-42.270,11.700,電力孔蓋
+B1,148.315,-137.849,10.500,共同點
+B2,135.566,-94.984,10.850,共同點
+B3,178.431,-82.234,11.100,共同點`);
 
   // 測站4：末站有GPS，與測站3共享B1/B2/B3，形成閉合段（測站2→3→4）
   addStation('測站4',true,
-`B1,-30.000,0.000,5.500,控制點
-B2,10.000,30.000,6.000,控制點
-B3,-20.000,50.000,6.500,控制點
-T9,40.000,20.000,7.200,電力孔蓋
-T10,-10.000,60.000,7.800,路邊線`,
-`B1,246720.330,2665480.110,58.920
-B2,246760.440,2665510.220,59.450
-B3,246730.550,2665530.330,59.980`);
+`B1,0.000,0.000,10.500,控制點
+B2,-26.642,35.920,10.850,控制點
+B3,9.278,62.561,11.100,控制點
+T9,33.017,-14.487,9.800,電力孔蓋
+T10,4.639,31.281,10.200,路邊線`,
+`B1,246620.244,2665150.060,52.500
+B2,246590.573,2665183.521,52.850
+B3,246624.034,2665213.192,53.100`);
 
   activeIdx=0; render();
 }
