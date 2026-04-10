@@ -282,9 +282,13 @@ function helmert(ctrl){
     const dE=a*p.lx-b*p.ly+tx-p.gE,dN=b*p.lx+a*p.ly+ty-p.gN,dH=kz*p.lz+dz-p.gH;
     sE2+=dE*dE; sN2+=dN*dN; sH2+=dH*dH; s3d+=dE*dE+dN*dN+dH*dH;
   }
-  return {a,b,tx,ty,kz,dz,scale:Math.sqrt(a*a+b*b),rot:Math.atan2(b,a)*180/Math.PI,n,
+  const scale=Math.sqrt(a*a+b*b);
+  const scaleWarn = scale<0.995||scale>1.005;
+  const scaleErr  = scale<0.950||scale>1.050;
+  return {a,b,tx,ty,kz,dz,scale,rot:Math.atan2(b,a)*180/Math.PI,n,
     rmsE:Math.sqrt(sE2/n),rmsN:Math.sqrt(sN2/n),rmsH:Math.sqrt(sH2/n),
-    rms2D:Math.sqrt((sE2+sN2)/n),rms3D:Math.sqrt(s3d/n)};
+    rms2D:Math.sqrt((sE2+sN2)/n),rms3D:Math.sqrt(s3d/n),
+    scaleWarn,scaleErr};
 }
 
 function tryCalcStation(s, lib){
@@ -309,6 +313,7 @@ function tryCalcStation(s, lib){
   if(ctrl.length<2) return null;
   const hp=helmert(ctrl);
   if(!hp) return null;
+  if(hp.scaleErr) return {error:`縮放比例異常（${hp.scale.toFixed(6)}，合理範圍 0.950～1.050），請檢查控制點資料是否正確`,hp};
   const pts=[];
   parsed.forEach(p=>{
     const E=hp.a*p.lx-hp.b*p.ly+hp.tx,N=hp.b*p.lx+hp.a*p.ly+hp.ty,H=hp.kz*p.lz+hp.dz;
@@ -322,7 +327,7 @@ function rmsTag(v){
   if(!v&&v!==0) return '<span class="badge b-gray">—</span>';
   const s=v.toFixed(6);
   if(v<0.01) return `<span class="rms-good">${s}</span>`;
-  if(v<0.05)  return `<span class="rms-warn">${s}</span>`;
+  if(v<0.05) return `<span class="rms-warn">${s}</span>`;
   return `<span class="rms-bad">${s}</span>`;
 }
 
@@ -464,11 +469,16 @@ function runAll(){
       if(results[si]!==null) continue;
       const s=stations[si];
       const res=tryCalcStation(s, lib);
-      if(res){
+      if(res&&!res.error){
         results[si]=res;
         res.pts.forEach(p=>{ lib[p.name]={E:p.E,N:p.N,H:p.H}; });
         changed=true;
-        roundLog.push(`<span class="ok">✓ ${s.name}（控制點 ${res.hp.n} 個，RMS 3D=${res.hp.rms3D.toFixed(4)}m）</span>`);
+        const scaleNote=res.hp.scaleWarn?` ⚠ 縮放${res.hp.scale.toFixed(5)}`:'';
+        roundLog.push(`<span class="ok">✓ ${s.name}（控制點 ${res.hp.n} 個，RMS 3D=${res.hp.rms3D.toFixed(4)}m${scaleNote}）</span>`);
+      } else if(res&&res.error){
+        results[si]={error:res.error, hp:res.hp};
+        roundLog.push(`<span class="err">✕ ${s.name}：${res.error}</span>`);
+        changed=true; // 標記為已處理（錯誤），不再重試
       } else {
         roundLog.push(`<span class="skip">… ${s.name}（控制點不足，待下一輪）</span>`);
       }
@@ -520,7 +530,7 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
         <th>閉合差 E (m)</th><th>閉合差 N (m)</th><th>閉合差 H (m)</th><th>閉合差 3D (m)</th>
       </tr></thead><tbody>`;
     closures.forEach(c=>{
-      const cls3D=c.closure3D<0.01?'rms-good':c.closure3D<0.1?'rms-warn':'rms-bad';
+      const cls3D=c.closure3D<0.01?'rms-good':c.closure3D<0.05?'rms-warn':'rms-bad';
       html+=`<tr>
         <td style="font-family:sans-serif;font-weight:600">${c.fromName} → ${c.toName}</td>
         <td style="font-family:sans-serif">${c.relayNames.join('、')}</td>
@@ -542,11 +552,26 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       html+=`<div class="err-box">✕ ${s.name}：控制點不足，無法計算（請確認是否有 2 個以上相同點名與其他站連接）</div>`;
       return;
     }
+    if(r.error){
+      const hp=r.hp;
+      const scaleCls=hp.scaleErr?'rms-bad':'rms-warn';
+      html+=`<div class="err-box">
+        ✕ ${s.name}：${r.error}
+        <div style="margin-top:6px;font-size:11px">
+          縮放比例：<span class="${scaleCls}">${hp.scale.toFixed(8)}</span>　
+          旋轉：${hp.rot.toFixed(4)}°　控制點數：${hp.n}
+        </div>
+      </div>`;
+      return;
+    }
     const hp=r.hp;
+    const scaleBadge=hp.scaleWarn
+      ? `<span class="badge" style="background:#fdf0d8;color:#5c3a05">⚠ 縮放 ${hp.scale.toFixed(6)}</span>`
+      : `<span class="badge b-gray">縮放 ${hp.scale.toFixed(8)}</span>`;
     html+=`<div class="result-stn-header">
       <span style="font-size:14px;font-weight:600;color:var(--blue)">${s.name}</span>
       <span class="badge b-gray">控制點 ${hp.n}</span>
-      <span class="badge b-gray">縮放 ${hp.scale.toFixed(8)}</span>
+      ${scaleBadge}
       <span class="badge b-gray">旋轉 ${hp.rot.toFixed(4)}°</span>
     </div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
