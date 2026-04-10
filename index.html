@@ -103,7 +103,7 @@
 
 <div class="page-header">
   <h1>多站連測座標轉換工具</h1>
-  <p>貼上格式：點名,X,Y,Z,屬性（屬性可留空）· 相同點名自動視為共同點 · 雙向傳遞 · 閉合差自動平差</p>
+  <p>貼上格式：點名,X,Y,Z,屬性（屬性可留空）· 相同點名自動視為共同點 · 雙向傳遞 · 閉合差平差（支援首、中、末任意站有 GPS）</p>
 </div>
 
 <div class="card" style="padding:14px 20px">
@@ -326,18 +326,44 @@ function rmsTag(v){
   return `<span class="rms-bad">${s}</span>`;
 }
 
-// ── 找出各傳遞段（兩個 GPS 站之間的傳遞站序列）─────────────────
+// ── 找出各傳遞段 ─────────────────────────────────────────────────
+// 支援三種情況：
+//   A. GPS站 → 傳遞站... → GPS站  （標準閉合段，雙端固定）
+//   B. 傳遞站... → GPS站 → 傳遞站...（中間有GPS，向兩端擴散）
+//   C. 傳遞站... → GPS站（首/末端單邊，無閉合差可平差，僅傳遞）
+// 回傳 [{from:si|null, to:si|null, relays:[si,...], type:'closed'|'open'}]
 function findSegments(results){
-  // 回傳 [{from:si, to:si, relays:[si,...]}]
-  const gpsStnIdx = stations.map((s,i)=>s.hasGPS?i:-1).filter(i=>i>=0);
-  if(gpsStnIdx.length<2) return [];
+  const n=stations.length;
+  const isGPS=stations.map(s=>s.hasGPS);
+  const gpsStnIdx=stations.map((s,i)=>s.hasGPS?i:-1).filter(i=>i>=0);
+  if(!gpsStnIdx.length) return [];
+
   const segs=[];
+
+  // A+B：每兩個相鄰 GPS 站之間的傳遞站
   for(let g=0;g<gpsStnIdx.length-1;g++){
     const from=gpsStnIdx[g], to=gpsStnIdx[g+1];
     const relays=[];
     for(let i=from+1;i<to;i++) relays.push(i);
-    if(relays.length>0) segs.push({from,to,relays});
+    if(relays.length>0) segs.push({from,to,relays,type:'closed'});
   }
+
+  // C：第一個GPS站之前的傳遞站（只有後端固定，無法平差，僅標記）
+  const firstGPS=gpsStnIdx[0];
+  if(firstGPS>0){
+    const relays=[];
+    for(let i=0;i<firstGPS;i++) relays.push(i);
+    segs.push({from:null,to:firstGPS,relays,type:'open_start'});
+  }
+
+  // C：最後一個GPS站之後的傳遞站（只有前端固定，無法平差，僅標記）
+  const lastGPS=gpsStnIdx[gpsStnIdx.length-1];
+  if(lastGPS<n-1){
+    const relays=[];
+    for(let i=lastGPS+1;i<n;i++) relays.push(i);
+    segs.push({from:lastGPS,to:null,relays,type:'open_end'});
+  }
+
   return segs;
 }
 
@@ -350,19 +376,36 @@ function applyClosureAdjustment(results){
   const closures=[];
 
   segs.forEach(seg=>{
+    // open_start / open_end：單端固定，無閉合差，僅記錄
+    if(seg.type==='open_start'){
+      adjLog.push(
+        `<span style="color:var(--text3)">ℹ ${seg.relays.map(i=>stations[i].name).join('、')} → `+
+        `${stations[seg.to].name}（單端固定，無閉合差，座標由 ${stations[seg.to].name} 向前傳遞）</span>`
+      );
+      return;
+    }
+    if(seg.type==='open_end'){
+      adjLog.push(
+        `<span style="color:var(--text3)">ℹ ${stations[seg.from].name} → `+
+        `${seg.relays.map(i=>stations[i].name).join('、')}（單端固定，無閉合差，座標由 ${stations[seg.from].name} 向後傳遞）</span>`
+      );
+      return;
+    }
+
+    // closed：兩端都有GPS，計算閉合差並平差
     const rFrom=results[seg.from], rTo=results[seg.to];
     if(!rFrom||!rTo) return;
 
-    // 對每個在 from 與 to 站都出現的共同點，計算閉合差
     const fromLib={}, toLib={};
     rFrom.pts.forEach(p=>{ fromLib[p.name]={E:p.E,N:p.N,H:p.H}; });
     rTo.pts.forEach(p=>{ toLib[p.name]={E:p.E,N:p.N,H:p.H}; });
 
-    // 找兩站共有的點
     const commonPts=Object.keys(fromLib).filter(n=>toLib[n]);
-    if(!commonPts.length) return;
+    if(!commonPts.length){
+      adjLog.push(`<span style="color:var(--amber)">⚠ ${stations[seg.from].name} → ${stations[seg.to].name}：找不到兩站共同點，無法計算閉合差</span>`);
+      return;
+    }
 
-    // 平均閉合差（from站算出的座標 vs to站算出的座標）
     let dE=0,dN=0,dH=0;
     commonPts.forEach(n=>{
       dE+=toLib[n].E-fromLib[n].E;
@@ -371,7 +414,7 @@ function applyClosureAdjustment(results){
     });
     dE/=commonPts.length; dN/=commonPts.length; dH/=commonPts.length;
 
-    const totalSteps=seg.relays.length+1; // 間隔數
+    const totalSteps=seg.relays.length+1;
     const closure3D=Math.sqrt(dE*dE+dN*dN+dH*dH);
 
     closures.push({
@@ -381,10 +424,10 @@ function applyClosureAdjustment(results){
       dE,dN,dH,closure3D,commonPts
     });
 
-    // 把修正量按比例加到各傳遞站的每個點
+    // 按比例分配修正量給中間傳遞站
     seg.relays.forEach((si,idx)=>{
       if(!results[si]) return;
-      const ratio=(idx+1)/totalSteps; // 0 < ratio < 1
+      const ratio=(idx+1)/totalSteps;
       const corrE=-dE*ratio, corrN=-dN*ratio, corrH=-dH*ratio;
       results[si].pts.forEach(p=>{
         p.E+=corrE; p.N+=corrN; p.H+=corrH;
@@ -394,9 +437,7 @@ function applyClosureAdjustment(results){
     });
 
     adjLog.push(
-      `<span class="ok">✓ ${stations[seg.from].name} → ${stations[seg.to].name}</span>`+
-      `<span style="color:var(--text2)">（閉合差 E=${dE.toFixed(4)}m N=${dN.toFixed(4)}m H=${dH.toFixed(4)}m 3D=${closure3D.toFixed(4)}m，共同點：${commonPts.join('、')}）`+
-      `，已按比例修正 ${seg.relays.map(i=>stations[i].name).join('、')}</span>`
+      `<span class="ok">✓ ${stations[seg.from].name} → ${stations[seg.to].name}（閉合差 E=${dE.toFixed(4)}m N=${dN.toFixed(4)}m H=${dH.toFixed(4)}m 3D=${closure3D.toFixed(4)}m，共同點：${commonPts.join('、')}，已按比例修正 ${seg.relays.map(i=>stations[i].name).join('、')}）</span>`
     );
   });
 
@@ -615,37 +656,40 @@ function clearAll(){
 function loadExample(){
   stations=[]; activeIdx=0;
   document.getElementById('result-area').innerHTML='';
-  addStation('測站1',true,
-`A1,0.000,0.000,10.250,控制點
-A2,125.340,89.210,12.780,控制點
-A3,-43.780,201.550,15.100,控制點
+
+  // 測站1：傳遞站（前端無GPS，由測站2向前傳遞）
+  addStation('測站1',false,
+`P1,-80.000,-50.000,8.500,共同點
+P2,-50.000,-20.000,9.000,共同點
+T0,-90.000,10.000,8.800,電力孔蓋`);
+
+  // 測站2：中間站有GPS（向前傳遞給測站1，向後傳遞給測站3）
+  addStation('測站2',true,
+`P1,0.000,0.000,10.250,控制點
+P2,30.000,30.000,10.800,控制點
+A1,125.340,89.210,12.780,控制點
 T1,55.200,120.400,11.900,電力孔蓋
 T2,88.750,45.600,13.200,電信孔蓋
 S1,30.000,160.000,13.500,共同點
 S2,70.000,190.000,14.200,共同點
 S3,10.000,210.000,14.800,共同點`,
-`A1,246523.450,2665134.220,52.180
-A2,246648.120,2665222.890,54.710
-A3,246479.890,2665334.100,57.030`);
-  addStation('測站2',false,
+`P1,246440.110,2665050.330,52.800
+P2,246470.220,2665080.440,53.350
+A1,246648.120,2665222.890,54.710`);
+
+  // 測站3：傳遞站
+  addStation('測站3',false,
 `S1,-20.000,0.000,2.500,共同點
 S2,20.000,30.000,3.200,共同點
 S3,-40.000,50.000,3.800,共同點
 T3,50.000,80.000,5.100,路邊線
 T4,-10.000,110.000,6.300,水溝蓋
 T5,80.000,60.000,4.700,電力孔蓋
-S4,30.000,140.000,7.000,共同點
-S5,-20.000,155.000,7.500,共同點`);
-  addStation('測站3',false,
-`S4,0.000,0.000,1.200,共同點
-S5,-50.000,15.000,1.800,共同點
-T6,60.000,40.000,3.500,路邊線
-T7,-30.000,70.000,4.100,電信孔蓋
-T8,100.000,20.000,2.900,水溝蓋
 B1,120.000,50.000,2.100,共同點
 B2,80.000,80.000,2.600,共同點
 B3,50.000,100.000,3.100,共同點`);
-  // 測站4：末站有GPS，與測站3共享B1/B2/B3，示範閉合差平差
+
+  // 測站4：末站有GPS，與測站3共享B1/B2/B3，形成閉合段（測站2→3→4）
   addStation('測站4',true,
 `B1,-30.000,0.000,5.500,控制點
 B2,10.000,30.000,6.000,控制點
@@ -655,6 +699,7 @@ T10,-10.000,60.000,7.800,路邊線`,
 `B1,246720.330,2665480.110,58.920
 B2,246760.440,2665510.220,59.450
 B3,246730.550,2665530.330,59.980`);
+
   activeIdx=0; render();
 }
 
