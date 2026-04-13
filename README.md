@@ -1,87 +1,158 @@
 # TraverseLink
 
-**多站連測座標轉換工具 | Multi-Station Traverse Coordinate Transformation Tool**
+**Multi-Station Traverse Coordinate Transformation Tool**
 
-A browser-based tool for surveyors using total stations (e.g. Leica TS03) to transform relative local coordinates into absolute coordinates through multi-station traverse, with support for GPS control points and automatic shared-point detection.
+A browser-based surveying tool for transforming total station relative coordinates into absolute coordinates through multi-station traverse. Supports GPS control points at any position in the traverse chain, automatic shared-point detection, bidirectional coordinate propagation, and linear closure adjustment.
 
 ---
 
-## Features
+## Live Demo
 
-- **Multi-station traverse** — No limit on the number of stations
-- **Mixed mode** — Some stations with GPS control points, others connected via shared points
-- **Bidirectional propagation** — Shared points can come from either preceding or following stations; iterative solving handles any connection order
-- **Auto shared-point detection** — Points with identical names across stations are automatically treated as shared control points, no manual mapping required
-- **Paste-in data entry** — Directly paste data in `Point,X,Y,Z,Attribute` format (comma or tab separated)
-- **Helmert 4-parameter transformation** — Handles translation, rotation, and scale in the horizontal plane; separate linear regression for Z (elevation)
-- **RMS quality indicators** — Color-coded RMS per station (E / N / H / 2D / 3D)
-- **Per-station results + merged table** — Individual station results and a deduplicated merged table with all unique points
-- **TSV export** — One-click copy for pasting directly into Excel
+Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL — no server-side code required.
+
+---
+
+## Key Features
+
+### Coordinate Transformation
+- **Helmert 4-parameter transformation** for horizontal plane (translation, rotation, scale)
+- **Linear regression** for vertical (Z/H) coordinate transfer
+- **Scale validation** with color-coded warnings:
+  - Normal: 0.9990 – 1.0010
+  - Warning ⚠ (amber): 0.9950 – 0.9990 or 1.0010 – 1.0050
+  - Alert ⚠ (red): outside 0.9500 – 1.0500
+
+### Multi-Station Traverse
+- **Unlimited stations** — add or remove stations dynamically
+- **Mixed GPS/relay mode** — any station can be a GPS anchor or relay station
+- **Bidirectional propagation** — iterative solving allows shared points to come from preceding or following stations in any order
+- **Flexible GPS placement** — GPS control points can be at the start, middle, end, or any combination of positions in the traverse chain
+
+### Closure Adjustment
+- **Automatic segment detection** — identifies traverse segments bounded by GPS stations on both ends
+- **Linear interpolation adjustment** — distributes closure error proportionally across intermediate relay stations
+- **Closure summary table** — displays ΔE, ΔN, ΔH, and 3D closure for each segment with color-coded quality indicators
+- **Open-end handling** — single-anchor segments (no closure possible) are clearly labeled in the log
+
+### Data Entry
+- **Paste-in format** — directly paste data in `PointName,X,Y,Z,Attribute` format (comma or tab separated)
+- **Auto shared-point detection** — points with identical names across stations are automatically treated as control points; no manual mapping required
+- **GPS pairing by name** — GPS absolute coordinates are matched to total station points by name automatically
+
+### Results
+- **Per-station results** — individual Helmert parameters, RMS, shared points, and adjustment corrections
+- **Merged result table** — all unique points from all stations in a single deduplicated table with source station column
+- **RMS color coding**:
+  - Green: < 0.01 m (excellent)
+  - Yellow: 0.01 – 0.05 m (acceptable)
+  - Red: ≥ 0.05 m (needs review)
+- **One-click TSV export** — copy results directly into Excel
+
+### Map Preview
+- **GPS control point map** at the bottom of results using Leaflet.js
+- **Three base layers** switchable from the map corner:
+  - Google Satellite + Labels (default)
+  - Google Satellite only
+  - OpenStreetMap street map
+- **TWD97 → WGS84** coordinate conversion built-in (accuracy ~1 m, suitable for Taiwan)
+- Click any marker to view point name, station, attribute, and TWD97 E/N/H coordinates
 
 ---
 
 ## Input Format
 
 ### Total Station (relative coordinates)
+Paste directly — comma or tab separated:
 ```
 PointName,X,Y,Z,Attribute
-A1,0.000,0.000,10.250,Control
-S1,30.000,160.000,13.500,Shared
-T1,55.200,120.400,11.900,Manhole
+P1,0.000,0.000,10.250,Control
+S1,30.000,160.000,11.650,Shared
+T1,55.000,120.000,10.900,Power manhole
 ```
-Attribute column is optional and can be left empty.
+`Attribute` is optional and accepts any text.
 
-### GPS (absolute coordinates)
+### GPS Absolute Coordinates (GPS stations only)
 ```
 PointName,E,N,H
-A1,246523.450,2665134.220,52.180
-A2,246648.120,2665222.890,54.710
+P1,246440.000,2665050.000,52.250
+P2,246501.745,2665128.661,52.820
 ```
-Point names must match the total station data exactly. The system pairs them automatically.
+Point names must exactly match the total station data. Case-sensitive.
 
 ---
 
-## Usage
+## Workflow
 
-1. Open `index.html` in any browser (Chrome / Edge / Firefox)
-2. Click **+ 新增測站** to add stations, or click **載入範例資料** to load sample data
+```
+1. Open index.html in browser
+2. Click [+ 新增測站] to add stations (or load sample data)
 3. For each station:
-   - Set station type: **有 GPS** (has GPS) or **傳遞站** (relay station)
-   - Paste total station data into the upper text area
-   - If GPS station: paste GPS absolute coordinates into the lower text area
-   - If relay station: points with names matching any other station are automatically detected as shared points
-4. Click **▶ 執行全站計算** to run the calculation
-5. Results appear in two sections:
-   - **各站計算結果** — Per-station results with RMS and shared point info
-   - **合併結果** — All unique points merged into one table
-6. Use **複製各站結果 (TSV)** or **複製合併結果 (TSV)** to copy results to clipboard, then paste into Excel
+   ├── Set type: [有 GPS] GPS station  or  [傳遞站] Relay station
+   ├── Paste total station data (PointName,X,Y,Z,Attribute)
+   └── GPS station only: paste GPS coordinates (PointName,E,N,H)
+4. Click [▶ 執行全站計算]
+5. Review results:
+   ├── Iteration log — stations solved per round
+   ├── Closure adjustment — segment errors and corrections
+   ├── Per-station results — Helmert params, RMS, adjustment column
+   ├── Merged result table — all unique points across all stations
+   └── Map preview — GPS control points on satellite imagery
+6. Copy TSV to clipboard → paste into Excel
+```
 
 ---
 
 ## How Bidirectional Propagation Works
 
-The calculation uses iterative solving:
+```
+Round 1: Solve all GPS stations → add their points to the global library
+Round 2: For each unsolved relay station, check if ≥2 shared points
+         are now in the library → solve if possible → add to library
+Round N: Repeat until all stations are solved or no further progress
+```
 
-1. **Round 1** — Calculate all GPS stations first, add results to the global point library
-2. **Round 2+** — For each uncalculated relay station, check if enough shared points are now in the library; calculate if possible, then add its points to the library
-3. Repeat until all stations are solved or no further progress is possible
-
-This means relay stations can reference shared points from stations that appear later in the list, not just earlier ones.
+Relay stations can reference shared points from stations that appear **later** in the list, not just earlier ones.
 
 ---
 
-## Coordinate Transformation Method
+## How Closure Adjustment Works
 
-**Horizontal (X, Y):** Helmert 4-parameter transformation (least squares)
+When a traverse segment has GPS anchors on **both ends**:
 
-$$E = a \cdot X - b \cdot Y + t_x$$
-$$N = b \cdot X + a \cdot Y + t_y$$
+```
+GPS Station A ── Relay 1 ── Relay 2 ── GPS Station B
+     ↓                                       ↓
+Computes shared                       Computes shared
+point coords                          point coords
+     └──── closure error = B − A ──────────┘
+           distributed proportionally:
+           Relay 1: corrected by 1/3 × error
+           Relay 2: corrected by 2/3 × error
+```
 
-Where scale $= \sqrt{a^2 + b^2}$ and rotation $= \arctan(b/a)$
+Single-anchor segments (relay stations before the first GPS station or after the last) are coordinate-propagated only — no closure adjustment without a second anchor.
 
-**Vertical (Z):** Linear regression
+---
 
-$$H = k_z \cdot Z + d_z$$
+## Coordinate Transformation
+
+**Horizontal — Helmert 4-parameter (least squares):**
+
+```
+E = a·X − b·Y + tx
+N = b·X + a·Y + ty
+
+Scale    = √(a² + b²)
+Rotation = atan2(b, a)
+```
+
+**Vertical — linear regression:**
+
+```
+H = kz·Z + dz
+```
+
+**TWD97 → WGS84** (map display only): TM2 inverse projection, accuracy ~1 m.
 
 ---
 
@@ -89,29 +160,50 @@ $$H = k_z \cdot Z + d_z$$
 
 ```
 traverselink/
-├── index.html      # Main application (single file, no dependencies)
+├── index.html      # Complete application — single file, zero dependencies
 └── README.md       # This file
 ```
 
-No installation, no dependencies, no internet connection required after the page loads.
+No build step. No npm. No server. Open `index.html` and it works.
 
 ---
 
-## Browser Compatibility
+## Browser Requirements
 
-| Browser | Support |
+| Browser | Minimum |
 |---------|---------|
-| Chrome 90+ | ✓ |
-| Edge 90+ | ✓ |
-| Firefox 88+ | ✓ |
-| Safari 14+ | ✓ |
+| Chrome  | 90+     |
+| Edge    | 90+     |
+| Firefox | 88+     |
+| Safari  | 14+     |
+
+Internet connection is required only for map tile loading. All coordinate calculations run fully offline.
+
+---
+
+## Deployment
+
+**Local use:**
+Download `index.html` and open in any browser.
+
+**GitHub Pages:**
+1. Create a repository and upload `index.html` as the root file
+2. Settings → Pages → Branch: main → Save
+3. Share `https://username.github.io/repository-name`
+
+**Netlify Drop:**
+Drag and drop `index.html` at [app.netlify.com/drop](https://app.netlify.com/drop) for an instant URL.
+
+---
+
+## Notes
+
+- Google satellite tiles are loaded via an unofficial URL — suitable for field and internal use. For high-traffic public deployment, use an official Google Maps API key.
+- TWD97 coordinate system is assumed for map display. Results from other coordinate systems will show offset map markers but correct transformation output.
+- Developed and tested with **Leica TS03** total station data and **TWD97** GPS coordinates.
 
 ---
 
 ## License
 
 MIT License — free to use, modify, and distribute.
-
----
-
-*Built for field surveyors. Tested with Leica TS03 total station data and TWD97 GPS coordinates.*
