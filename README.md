@@ -15,7 +15,7 @@ Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL
 ## Key Features
 
 ### Coordinate Transformation
-- **Helmert 4-parameter transformation** for horizontal plane (translation, rotation, scale)
+- **Helmert 4-parameter transformation** for the horizontal plane (translation, rotation, scale)
 - **Linear regression** for vertical (Z/H) coordinate transfer
 - **Scale validation** with color-coded warnings:
   - Normal: 0.9990 – 1.0010
@@ -31,7 +31,7 @@ Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL
 ### Closure Adjustment
 - **Automatic segment detection** — identifies traverse segments bounded by GPS stations on both ends
 - **Linear interpolation adjustment** — distributes closure error proportionally across intermediate relay stations
-- **Closure summary table** — displays ΔE, ΔN, ΔH, and 3D closure for each segment with color-coded quality indicators
+- **Closure summary table** — displays ΔE, ΔN, ΔH, and 3D closure per segment with color-coded quality indicators
 - **Open-end handling** — single-anchor segments (no closure possible) are clearly labeled in the log
 
 ### Data Entry
@@ -48,15 +48,6 @@ Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL
   - Red: ≥ 0.05 m (needs review)
 - **One-click TSV export** — copy results directly into Excel
 
-### Map Preview
-- **GPS control point map** at the bottom of results using Leaflet.js
-- **Three base layers** switchable from the map corner:
-  - Google Satellite + Labels (default)
-  - Google Satellite only
-  - OpenStreetMap street map
-- **TWD97 → WGS84** coordinate conversion built-in (accuracy ~1 m, suitable for Taiwan)
-- Click any marker to view point name, station, attribute, and TWD97 E/N/H coordinates
-
 ---
 
 ## Input Format
@@ -69,7 +60,7 @@ P1,0.000,0.000,10.250,Control
 S1,30.000,160.000,11.650,Shared
 T1,55.000,120.000,10.900,Power manhole
 ```
-`Attribute` is optional and accepts any text.
+`Attribute` is optional and accepts any text (control point, manhole type, road edge, etc.).
 
 ### GPS Absolute Coordinates (GPS stations only)
 ```
@@ -93,10 +84,9 @@ Point names must exactly match the total station data. Case-sensitive.
 4. Click [▶ 執行全站計算]
 5. Review results:
    ├── Iteration log — stations solved per round
-   ├── Closure adjustment — segment errors and corrections
+   ├── Closure adjustment — segment errors and corrections applied
    ├── Per-station results — Helmert params, RMS, adjustment column
-   ├── Merged result table — all unique points across all stations
-   └── Map preview — GPS control points on satellite imagery
+   └── Merged result table — all unique points across all stations
 6. Copy TSV to clipboard → paste into Excel
 ```
 
@@ -152,8 +142,6 @@ Rotation = atan2(b, a)
 H = kz·Z + dz
 ```
 
-**TWD97 → WGS84** (map display only): TM2 inverse projection, accuracy ~1 m.
-
 ---
 
 ## Files
@@ -177,7 +165,7 @@ No build step. No npm. No server. Open `index.html` and it works.
 | Firefox | 88+     |
 | Safari  | 14+     |
 
-Internet connection is required only for map tile loading. All coordinate calculations run fully offline.
+All coordinate calculations run fully offline — no internet connection required.
 
 ---
 
@@ -198,9 +186,8 @@ Drag and drop `index.html` at [app.netlify.com/drop](https://app.netlify.com/dro
 
 ## Notes
 
-- Google satellite tiles are loaded via an unofficial URL — suitable for field and internal use. For high-traffic public deployment, use an official Google Maps API key.
-- TWD97 coordinate system is assumed for map display. Results from other coordinate systems will show offset map markers but correct transformation output.
 - Developed and tested with **Leica TS03** total station data and **TWD97** GPS coordinates.
+- The tool runs entirely in the browser — no data is sent to any server.
 
 ---
 
