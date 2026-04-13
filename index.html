@@ -705,7 +705,7 @@ function renderMap(gpsPts){
   mapDiv.innerHTML=
     '<div class="sec-title" style="font-size:15px">GPS 控制點位置預覽'+
     '  <span class="badge b-green">'+gpsPts.length+' 個控制點</span>'+
-    '  <span class="badge b-gray">Google 衛星圖</span>'+
+    '  <span class="badge b-gray">ESRI 衛星圖</span>'+
     '</div>'+
     '<div id="gps-map" style="height:420px;border-radius:8px;border:1px solid #d8d6cf;margin-bottom:8px"></div>'+
     '<div class="map-legend">'+
@@ -723,29 +723,34 @@ function renderMap(gpsPts){
       const map=L.map(mapEl,{scrollWheelZoom:true});
       window._leafletMap=map;
 
-      // 底圖定義
-      const googleSat=L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{
-        attribution:'&copy; Google',
-        maxZoom:21,
-        subdomains:['mt0','mt1','mt2','mt3']
+      // 底圖定義（全部使用 HTTPS 穩定來源，相容 GitHub Pages）
+      const esriSat=L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+        attribution:'&copy; Esri &mdash; Esri, DigitalGlobe, GeoEye, i-cubed, USDA FSA, USGS, AEX, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        maxZoom:19
       });
-      const googleHybrid=L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{
-        attribution:'&copy; Google',
-        maxZoom:21,
-        subdomains:['mt0','mt1','mt2','mt3']
-      });
+      const esriHybrid=L.layerGroup([
+        L.tileLayer(
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+          attribution:'&copy; Esri',maxZoom:19
+        }),
+        L.tileLayer(
+          'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{
+          maxZoom:19,opacity:0.8
+        })
+      ]);
       const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
         attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom:19
       });
 
-      // 預設使用 Google 衛星混合（含路名）
-      googleHybrid.addTo(map);
+      // 預設使用衛星圖 + 地名標籤
+      esriHybrid.addTo(map);
 
       // 圖層切換控制
       L.control.layers({
-        '衛星圖（含路名）':googleHybrid,
-        '純衛星圖':googleSat,
+        '衛星圖（含地名）':esriHybrid,
+        '純衛星圖':esriSat,
         '街道圖':osm
       },{},{position:'topright'}).addTo(map);
 
