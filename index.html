@@ -103,7 +103,7 @@
 
 <div class="page-header">
   <h1>多站連測座標轉換工具</h1>
-  <p>貼上格式：點名,X,Y,Z,屬性（屬性可留空）· 相同點名自動視為共同點 · 雙向傳遞 · 閉合差平差（支援首、中、末任意站有 GPS）</p>
+  <p>貼上格式：點名,X,Y,Z,屬性（屬性可留空）· 相同點名自動視為共同點 · 雙向傳遞 · 閉合差平差 · 高程採平移法（kz=1）· RMS + SD 雙指標</p>
 </div>
 
 <div class="card" style="padding:14px 20px">
@@ -264,30 +264,45 @@ function renderPanels(){
 
 function helmert(ctrl){
   const n=ctrl.length; if(n<2) return null;
-  let sXX=0,sYY=0,sX=0,sY=0,sXE=0,sXN=0,sYE=0,sYN=0,sE=0,sN=0,sZZ=0,sZ=0,sZH=0,sH=0;
+  let sXX=0,sYY=0,sX=0,sY=0,sXE=0,sXN=0,sYE=0,sYN=0,sE=0,sN=0,sZ=0,sH=0;
   for(const p of ctrl){
     sXX+=p.lx*p.lx; sYY+=p.ly*p.ly; sX+=p.lx; sY+=p.ly;
     sXE+=p.lx*p.gE; sXN+=p.lx*p.gN; sYE+=p.ly*p.gE; sYN+=p.ly*p.gN;
-    sE+=p.gE; sN+=p.gN; sZZ+=p.lz*p.lz; sZ+=p.lz; sZH+=p.lz*p.gH; sH+=p.gH;
+    sE+=p.gE; sN+=p.gN; sZ+=p.lz; sH+=p.gH;
   }
   const S=sXX+sYY,D=S-(sX*sX+sY*sY)/n;
   if(Math.abs(D)<1e-15) return null;
   const a=(sXE+sYN-(sX*sE+sY*sN)/n)/D;
   const b=(sXN-sYE-(sX*sN-sY*sE)/n)/D;
   const tx=(sE-a*sX+b*sY)/n,ty=(sN-b*sX-a*sY)/n;
-  const dn=n*sZZ-sZ*sZ;
-  const kz=Math.abs(dn)>1e-15?(n*sZH-sZ*sH)/dn:1,dz=(sH-kz*sZ)/n;
+  // 高程：kz 固定為 1，只計算平移 dz = mean(gH - lz)
+  const kz=1, dz=(sH-sZ)/n;
+  // 第一輪：累積殘差總和（用於計算 RMS 和 SD 的平均值）
   let sE2=0,sN2=0,sH2=0,s3d=0;
+  let mE=0,mN=0,mH=0;
+  const resids=[];
   for(const p of ctrl){
-    const dE=a*p.lx-b*p.ly+tx-p.gE,dN=b*p.lx+a*p.ly+ty-p.gN,dH=kz*p.lz+dz-p.gH;
+    const dE=a*p.lx-b*p.ly+tx-p.gE, dN=b*p.lx+a*p.ly+ty-p.gN, dH=p.lz+dz-p.gH;
     sE2+=dE*dE; sN2+=dN*dN; sH2+=dH*dH; s3d+=dE*dE+dN*dN+dH*dH;
+    mE+=dE; mN+=dN; mH+=dH;
+    resids.push({dE,dN,dH});
   }
+  mE/=n; mN/=n; mH/=n;
+  // 第二輪：計算標準差 SD（殘差相對於平均值的離散程度）
+  let sdE2=0,sdN2=0,sdH2=0,sd3d2=0;
+  for(const r of resids){
+    sdE2+=(r.dE-mE)**2; sdN2+=(r.dN-mN)**2; sdH2+=(r.dH-mH)**2;
+    sd3d2+=(r.dE-mE)**2+(r.dN-mN)**2+(r.dH-mH)**2;
+  }
+  const dof=n>1?n-1:1; // 自由度
   const scale=Math.sqrt(a*a+b*b);
   const scaleWarn = scale<0.995||scale>1.005;
   const scaleErr  = scale<0.950||scale>1.050;
   return {a,b,tx,ty,kz,dz,scale,rot:Math.atan2(b,a)*180/Math.PI,n,
-    rmsE:Math.sqrt(sE2/n),rmsN:Math.sqrt(sN2/n),rmsH:Math.sqrt(sH2/n),
-    rms2D:Math.sqrt((sE2+sN2)/n),rms3D:Math.sqrt(s3d/n),
+    rmsE:Math.sqrt(sE2/n),  rmsN:Math.sqrt(sN2/n),  rmsH:Math.sqrt(sH2/n),
+    rms2D:Math.sqrt((sE2+sN2)/n), rms3D:Math.sqrt(s3d/n),
+    sdE:Math.sqrt(sdE2/dof), sdN:Math.sqrt(sdN2/dof), sdH:Math.sqrt(sdH2/dof),
+    sd2D:Math.sqrt((sdE2+sdN2)/dof), sd3D:Math.sqrt(sd3d2/dof),
     scaleWarn,scaleErr};
 }
 
@@ -475,7 +490,7 @@ function runAll(){
         const scaleNote=res.hp.scaleErr
           ?` ⚠ 縮放異常 ${res.hp.scale.toFixed(5)}`
           :res.hp.scaleWarn?` ⚠ 縮放偏離 ${res.hp.scale.toFixed(5)}`:'';
-        roundLog.push(`<span class="ok">✓ ${s.name}（控制點 ${res.hp.n} 個，RMS 3D=${res.hp.rms3D.toFixed(4)}m${scaleNote}）</span>`);
+        roundLog.push(`<span class="ok">✓ ${s.name}（控制點 ${res.hp.n} 個，RMS 3D=${res.hp.rms3D.toFixed(4)}m  SD 3D=${res.hp.sd3D.toFixed(4)}m${scaleNote}）</span>`);
       } else {
         roundLog.push(`<span class="skip">… ${s.name}（控制點不足，待下一輪）</span>`);
       }
@@ -562,8 +577,10 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       <span class="badge b-gray">旋轉 ${hp.rot.toFixed(4)}°</span>
     </div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-      <span style="font-size:11px;color:var(--text2)">RMS：</span>
+      <span style="font-size:11px;color:var(--text2);font-weight:500">RMS：</span>
       E=${rmsTag(hp.rmsE)} N=${rmsTag(hp.rmsN)} H=${rmsTag(hp.rmsH)} 3D=${rmsTag(hp.rms3D)}
+      <span style="font-size:11px;color:var(--text2);font-weight:500;margin-left:10px">SD：</span>
+      E=${rmsTag(hp.sdE)} N=${rmsTag(hp.sdN)} H=${rmsTag(hp.sdH)} 3D=${rmsTag(hp.sd3D)}
       <span style="font-size:11px;color:var(--amber);margin-left:6px">共同點：</span>
       <div class="shared-pills" style="margin-top:0">${r.sharedNames.map(n=>`<span class="shared-pill">${n}</span>`).join('')}</div>
     </div>
