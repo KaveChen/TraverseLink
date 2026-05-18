@@ -96,7 +96,12 @@
   .closure-good{color:var(--green);font-weight:600}
   .closure-warn{color:var(--amber);font-weight:600}
   .closure-bad{color:var(--red);font-weight:600}
+  #traverse-map .leaflet-popup-content{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;line-height:1.6;min-width:160px}
+  #traverse-map .leaflet-popup-content b{font-size:13px;display:block;margin-bottom:2px}
+  .leaflet-container{font-family:'Segoe UI',system-ui,sans-serif}
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 <div class="page">
@@ -656,8 +661,29 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
   html+='</tbody></table></div></div>';
   html+=`<div class="btn-row"><button onclick="copyTsv('merged')" id="cb_merged">複製合併結果 (TSV)</button></div>`;
 
+  // 地圖卡片
+  html+=`<div class="card" id="map-card">
+    <div class="sec-title" style="font-size:15px">成果地圖
+      <span class="badge b-green">${mpts.length} 個唯一點位</span>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text2)">座標帶：</span>
+        <div class="toggle">
+          <button id="zone121" class="ay" onclick="setMapZone(121)">121°E</button>
+          <button id="zone119" onclick="setMapZone(119)">119°E</button>
+        </div>
+        <button onclick="fitMapBounds()">⊡ 縮放至全部</button>
+      </span>
+    </div>
+    <div id="traverse-map" style="height:500px;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;background:var(--bg3)"></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">
+      底圖：OpenStreetMap © contributors ｜ CartoDB © CARTO ｜ 座標系統：TWD97 TM2 — 第二分帶預設 121°E 中央經線，若點位偏移可改選 119°E（第一分帶）
+    </div>
+  </div>`;
+
   document.getElementById('result-area').innerHTML=html;
   window._perTsv=perTsv; window._mergedTsv=mergedTsv;
+  window._mpts=mpts; window._currentZone=121;
+  setTimeout(()=>renderMap(mpts,121), 80);
 }
 
 function copyTsv(t){
@@ -677,9 +703,126 @@ function copyTsv(t){
 
 function clearAll(){
   if(!confirm('確定清除所有資料？')) return;
+  if(_leafletMap){ _leafletMap.remove(); _leafletMap=null; }
   stations=[]; activeIdx=0;
   document.getElementById('result-area').innerHTML='';
   addStation('測站1',true);
+}
+
+// ── 地圖相關 ──────────────────────────────────────────────────────
+let _leafletMap=null;
+
+// TWD97 TM2 逆投影（Snyder 公式）→ WGS84 緯經度
+// lon0Deg: 中央經線，第二分帶=121，第一分帶=119
+function twd97ToWgs84(E,N,lon0Deg){
+  const a=6378137.0, f=1/298.257222101, k0=0.9999, FE=250000;
+  const e2=2*f-f*f, e4=e2*e2, e6=e4*e2;
+  const ePrime2=e2/(1-e2);
+  const lon0=lon0Deg*Math.PI/180;
+  const x=E-FE, y=N;
+  // 垂足緯度
+  const e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const M=y/k0;
+  const mu=M/(a*(1-e2/4-3*e4/64-5*e6/256));
+  const phi1=mu
+    +(3*e1/2-27*e1**3/32)*Math.sin(2*mu)
+    +(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu)
+    +(151*e1**3/96)*Math.sin(6*mu)
+    +(1097*e1**4/512)*Math.sin(8*mu);
+  const sinP=Math.sin(phi1),cosP=Math.cos(phi1),tanP=Math.tan(phi1);
+  const N1=a/Math.sqrt(1-e2*sinP*sinP);
+  const T1=tanP*tanP, C1=ePrime2*cosP*cosP;
+  const R1=a*(1-e2)/Math.pow(1-e2*sinP*sinP,1.5);
+  const D=x/(N1*k0);
+  const lat=phi1-(N1*tanP/R1)*(
+    D*D/2
+    -(5+3*T1+10*C1-4*C1*C1-9*ePrime2)*D**4/24
+    +(61+90*T1+298*C1+45*T1*T1-252*ePrime2-3*C1*C1)*D**6/720
+  );
+  const lon=lon0+(
+    D-(1+2*T1+C1)*D**3/6
+    +(5-2*C1+28*T1-3*C1*C1+8*ePrime2+24*T1*T1)*D**5/120
+  )/cosP;
+  return [lat*180/Math.PI, lon*180/Math.PI];
+}
+
+function renderMap(mpts,lon0Deg){
+  if(!window.L){
+    const el=document.getElementById('traverse-map');
+    if(el) el.innerHTML='<div style="padding:28px;text-align:center;color:var(--red)">Leaflet 套件載入失敗，請確認網路連線後重新整理</div>';
+    return;
+  }
+  if(_leafletMap){ _leafletMap.remove(); _leafletMap=null; }
+  const el=document.getElementById('traverse-map');
+  if(!el) return;
+
+  _leafletMap=L.map('traverse-map');
+
+  const osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom:19
+  });
+  const cartoLight=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom:19
+  });
+  cartoLight.addTo(_leafletMap);
+
+  const gpsGroup=L.layerGroup().addTo(_leafletMap);
+  const sharedGroup=L.layerGroup().addTo(_leafletMap);
+  const newGroup=L.layerGroup().addTo(_leafletMap);
+
+  const bounds=[];
+  mpts.forEach(([name,p])=>{
+    const ll=twd97ToWgs84(p.E,p.N,lon0Deg);
+    bounds.push(ll);
+    let col,fill,r;
+    if(p.tag==='gps')     { col='#1b4510'; fill='#2d6b1a'; r=9; }
+    else if(p.tag==='shared'){ col='#5c3a05'; fill='#c07a10'; r=7; }
+    else                   { col='#0d3d7a'; fill='#1a5fa8'; r=5; }
+    const typeLabel=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
+    const mk=L.circleMarker(ll,{radius:r,color:col,fillColor:fill,fillOpacity:0.85,weight:2});
+    mk.bindTooltip(name,{permanent:false,direction:'top',offset:[0,-8],opacity:0.92});
+    mk.bindPopup(
+      `<b>${name}</b>`+
+      `<span style="color:#777;font-size:11px"> ${typeLabel}</span><br>`+
+      `<b>E</b> ${p.E.toFixed(3)}<br>`+
+      `<b>N</b> ${p.N.toFixed(3)}<br>`+
+      `<b>H</b> ${p.H.toFixed(3)}`+
+      (p.attr?`<br><b>屬性</b> ${p.attr}`:'')+
+      `<br><b>出現站</b> ${p.stns.join('、')}`
+    );
+    if(p.tag==='gps') gpsGroup.addLayer(mk);
+    else if(p.tag==='shared') sharedGroup.addLayer(mk);
+    else newGroup.addLayer(mk);
+  });
+
+  L.control.layers(
+    {'地圖 (CartoDB Light)':cartoLight,'地圖 (OpenStreetMap)':osmLayer},
+    {'GPS控制點':gpsGroup,'共同點':sharedGroup,'新點位':newGroup},
+    {position:'topright',collapsed:false}
+  ).addTo(_leafletMap);
+
+  window._mapBounds=bounds;
+  if(bounds.length){
+    _leafletMap.fitBounds(bounds,{padding:[48,48]});
+  } else {
+    _leafletMap.setView([23.97,120.97],12);
+  }
+}
+
+function fitMapBounds(){
+  if(_leafletMap&&window._mapBounds&&window._mapBounds.length){
+    _leafletMap.fitBounds(window._mapBounds,{padding:[48,48]});
+  }
+}
+
+function setMapZone(lon0){
+  const b121=document.getElementById('zone121');
+  const b119=document.getElementById('zone119');
+  if(b121) b121.className=lon0===121?'ay':'';
+  if(b119) b119.className=lon0===119?'ay':'';
+  if(window._mpts) renderMap(window._mpts,lon0);
 }
 
 function loadExample(){
