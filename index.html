@@ -642,11 +642,13 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
     <div class="tbl-wrap"><table class="merged">
       <thead><tr><th>點名</th><th>屬性</th><th>類型</th>
       <th>E 絕對座標</th><th>N 絕對座標</th><th>H 高程</th>
-      <th>X, Y</th><th>出現站</th></tr></thead><tbody>`;
+      <th>X, Y</th><th>WGS84 (N, E)</th><th>出現站</th></tr></thead><tbody>`;
   mpts.forEach(([name,p])=>{
     const th=p.tag==='gps'?'<span class="tag tag-gps">GPS控制點</span>':p.tag==='shared'?'<span class="tag tag-shared">共同點</span>':'<span class="tag tag-new">新點位</span>';
     const ts=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
-    mergedTsv+=`${name}\t${p.attr}\t${ts}\t${p.E.toFixed(6)}\t${p.N.toFixed(6)}\t${p.H.toFixed(6)}\t${p.E.toFixed(3)},${p.N.toFixed(3)}\t${p.stns.join(', ')}\n`;
+    const [wLat,wLon]=twd97ToWgs84(p.E,p.N,window._currentZone||121);
+    const wgs84=`${wLat.toFixed(6)},${wLon.toFixed(6)}`;
+    mergedTsv+=`${name}\t${p.attr}\t${ts}\t${p.E.toFixed(6)}\t${p.N.toFixed(6)}\t${p.H.toFixed(6)}\t${p.E.toFixed(3)},${p.N.toFixed(3)}\t${wgs84}\t${p.stns.join(', ')}\n`;
     html+=`<tr>
       <td style="font-family:sans-serif;font-weight:600">${name}</td>
       <td style="font-family:sans-serif;color:var(--text2)">${p.attr||'—'}</td>
@@ -655,6 +657,7 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       <td style="font-weight:600;color:var(--blue)">${p.N.toFixed(6)}</td>
       <td style="font-weight:600;color:var(--blue)">${p.H.toFixed(6)}</td>
       <td style="color:var(--text2)">${p.E.toFixed(3)},${p.N.toFixed(3)}</td>
+      <td style="color:var(--text2);font-family:'Courier New',monospace">${wgs84}</td>
       <td style="font-family:sans-serif">${p.stns.map(s=>`<span class="stn-badge">${s}</span>`).join('')}</td>
     </tr>`;
   });
@@ -692,7 +695,7 @@ function copyTsv(t){
     txt='站名\t點名\t屬性\t類型\t全站X\t全站Y\t全站Z\tE絕對座標\tN絕對座標\tH高程\tX,Y\n'+(window._perTsv||'');
     bid='cb_per';
   } else {
-    txt='點名\t屬性\t類型\tE絕對座標\tN絕對座標\tH高程\tX,Y\t出現站\n'+(window._mergedTsv||'');
+    txt='點名\t屬性\t類型\tE絕對座標\tN絕對座標\tH高程\tX,Y\tWGS84(N,E)\t出現站\n'+(window._mergedTsv||'');
     bid='cb_merged';
   }
   navigator.clipboard.writeText(txt).then(()=>{
