@@ -6,28 +6,31 @@
 <title>多站連測座標轉換工具 v2.0</title>
 <style>
   :root{
-    --bg:#ffffff; --bg2:#f5f5f0; --bg3:#eeede8;
-    --text:#1a1a1a; --text2:#555550; --text3:#888880;
-    --border:#d8d6cf; --border2:#c0bdb4;
-    --blue:#1a5fa8; --blue-bg:#e8f0fb; --blue-text:#0d3d7a;
-    --green:#2d6b1a; --green-bg:#e8f5e0; --green-text:#1b4510;
-    --amber:#8a5a0a; --amber-bg:#fdf0d8; --amber-text:#5c3a05;
-    --red:#8a2020; --red-bg:#fdeaea; --red-text:#5c1010;
-    --purple:#5a3a9a; --purple-bg:#f0ebff; --purple-text:#3a2070;
-    --rms-good:#2d6b1a; --rms-good-bg:#e8f5e0;
-    --rms-warn:#8a5a0a; --rms-warn-bg:#fdf0d8;
-    --rms-bad:#8a2020; --rms-bad-bg:#fdeaea;
-    --radius:8px; --radius-lg:12px;
-    --shadow:0 1px 3px rgba(0,0,0,0.08);
+    --bg:#ffffff; --bg2:#f6f7f9; --bg3:#eef1f4;
+    --text:#16181d; --text2:#5b6470; --text3:#8a93a0;
+    --border:#d9dee5; --border2:#b9c2cd;
+    --blue:#1769aa; --blue-bg:#e8f2fb; --blue-text:#0c4776;
+    --green:#257a4b; --green-bg:#e8f6ef; --green-text:#145231;
+    --amber:#9a6508; --amber-bg:#fff3dd; --amber-text:#614006;
+    --red:#9a2626; --red-bg:#fdecec; --red-text:#661717;
+    --purple:#6551a8; --purple-bg:#f0edff; --purple-text:#43317c;
+    --rms-good:#257a4b; --rms-good-bg:#e8f6ef;
+    --rms-warn:#9a6508; --rms-warn-bg:#fff3dd;
+    --rms-bad:#9a2626; --rms-bad-bg:#fdecec;
+    --radius:8px; --radius-lg:10px;
+    --shadow:0 10px 24px rgba(27,39,58,0.07);
+    --shadow-sm:0 1px 2px rgba(27,39,58,0.06);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:13px;color:var(--text);background:var(--bg2);line-height:1.5}
-  .page{max-width:1100px;margin:0 auto;padding:24px 16px}
-  .page-header{background:var(--blue);color:#fff;border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px}
-  .page-header h1{font-size:20px;font-weight:600;margin-bottom:4px}
-  .page-header p{font-size:12px;opacity:0.85}
-  .card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;box-shadow:var(--shadow)}
-  .sec-title{font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--text)}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:13px;color:var(--text);background:linear-gradient(180deg,#fbfcfd 0,#f3f5f8 280px,#f6f7f9 100%);line-height:1.5}
+  .page{max-width:1280px;margin:0 auto;padding:22px 18px 34px}
+  .page-header{background:var(--bg);color:var(--text);border:1px solid var(--border);border-left:5px solid var(--blue);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+  .page-header h1{font-size:22px;font-weight:700;margin-bottom:5px;letter-spacing:0}
+  .page-header p{font-size:12px;color:var(--text2);max-width:980px}
+  .card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+  .chain-card{padding:12px 16px;margin-bottom:12px}
+  .chain-label{font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .sec-title{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--text)}
   .badge{font-size:11px;padding:2px 9px;border-radius:99px;font-weight:500}
   .b-blue{background:var(--blue-bg);color:var(--blue-text)}
   .b-green{background:var(--green-bg);color:var(--green-text)}
@@ -35,13 +38,14 @@
   .b-gray{background:var(--bg3);color:var(--text2)}
   .b-red{background:var(--red-bg);color:var(--red-text)}
   .b-purple{background:var(--purple-bg);color:var(--purple-text)}
-  .info-box{background:var(--blue-bg);color:var(--blue-text);border-radius:var(--radius);padding:9px 13px;font-size:12px;margin-bottom:10px;border-left:3px solid var(--blue)}
-  .warn-box{background:var(--amber-bg);color:var(--amber-text);border-radius:var(--radius);padding:9px 13px;font-size:12px;margin-bottom:10px;border-left:3px solid #c07a10}
-  .err-box{background:var(--red-bg);color:var(--red-text);border-radius:var(--radius);padding:9px 13px;font-size:12px;margin-bottom:8px;border-left:3px solid #b03030}
-  .tbl-wrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:12px}
-  table th{background:var(--bg2);color:var(--text2);font-weight:500;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;font-size:11px}
-  table td{padding:5px 8px;border-bottom:1px solid var(--border);font-family:'Courier New',monospace;font-size:11px;color:var(--text)}
+  .info-box,.warn-box,.err-box{border-radius:var(--radius);padding:10px 12px;font-size:12px;margin-bottom:10px}
+  .info-box{background:var(--blue-bg);color:var(--blue-text);border-left:3px solid var(--blue)}
+  .warn-box{background:var(--amber-bg);color:var(--amber-text);border-left:3px solid #c07a10}
+  .err-box{background:var(--red-bg);color:var(--red-text);border-left:3px solid #b03030}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:#fff}
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
+  table th{background:#f0f3f6;color:#4f5966;font-weight:700;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;font-size:11px}
+  table td{padding:7px 10px;border-bottom:1px solid var(--border);font-family:'Courier New',monospace;font-size:11px;color:var(--text)}
   table tr:last-child td{border-bottom:none}
   table.merged th{background:var(--blue);color:#fff}
   table tr:hover td{background:var(--bg2)}
@@ -52,13 +56,13 @@
   .rms-good{background:var(--rms-good-bg);color:var(--rms-good);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
   .rms-warn{background:var(--rms-warn-bg);color:var(--rms-warn);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
   .rms-bad{background:var(--rms-bad-bg);color:var(--rms-bad);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
-  .chain-vis{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 0}
-  .chain-node{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:500;white-space:nowrap;border:1px solid transparent}
-  .chain-arrow{color:var(--text3);font-size:16px}
-  .station-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}
-  .stab{padding:6px 16px;font-size:12px;border-radius:var(--radius);cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-weight:500;transition:all .15s}
+  .chain-vis{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:2px 0}
+  .chain-node{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;border:1px solid transparent;box-shadow:0 1px 0 rgba(0,0,0,.04)}
+  .chain-arrow{color:var(--text3);font-size:15px}
+  .station-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:4px;background:#e9edf2;border:1px solid var(--border);border-radius:var(--radius-lg)}
+  .stab{padding:7px 15px;font-size:12px;border-radius:7px;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2);font-weight:700;transition:all .15s}
   .stab:hover{border-color:var(--border2);background:var(--bg2)}
-  .stab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .stab.active{background:#fff;color:var(--blue-text);border-color:var(--border);box-shadow:var(--shadow-sm)}
   .stab.has-gps{border-left:3px solid var(--green)}
   .stab.no-gps{border-left:3px solid #c07a10}
   .toggle{display:flex}
@@ -67,8 +71,8 @@
   .toggle button:last-child{border-radius:0 var(--radius) var(--radius) 0;border-right-width:1px}
   .toggle button.ay{background:var(--green);color:#fff;border-color:var(--green)}
   .toggle button.an{background:#8a5a0a;color:#fff;border-color:#8a5a0a}
-  button{border:1px solid var(--border2);border-radius:var(--radius);padding:6px 14px;font-size:12px;background:var(--bg);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
-  button:hover{background:var(--bg2);border-color:var(--text3)}
+  button{border:1px solid var(--border2);border-radius:var(--radius);padding:7px 13px;font-size:12px;background:var(--bg);color:var(--text);cursor:pointer;font-weight:700;transition:all .15s;min-height:34px}
+  button:hover{background:var(--bg2);border-color:var(--text3);box-shadow:var(--shadow-sm)}
   button:active{transform:scale(.98)}
   button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
   button.primary:hover{background:#1450a0}
@@ -77,18 +81,23 @@
   button.danger{color:var(--red);border-color:#e0b0b0}
   button.danger:hover{background:var(--red-bg)}
   .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-  textarea{width:100%;min-height:100px;border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;font-size:12px;font-family:'Courier New',monospace;background:var(--bg2);color:var(--text);resize:vertical;line-height:1.7}
+  .action-bar{position:sticky;top:0;z-index:5;background:rgba(246,247,249,.93);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
+  textarea{width:100%;min-height:132px;border:1px solid var(--border2);border-radius:var(--radius);padding:11px 12px;font-size:12px;font-family:'Courier New',monospace;background:#fbfcfd;color:var(--text);resize:vertical;line-height:1.7}
   textarea:focus{outline:none;border-color:var(--blue);background:#fff}
   .parse-preview{font-size:11px;color:var(--text2);margin-top:6px;min-height:18px}
-  input[type=text]{border:1px solid var(--border2);border-radius:var(--radius);padding:5px 9px;background:var(--bg2);color:var(--text);font-size:13px}
+  input[type=text]{border:1px solid var(--border2);border-radius:var(--radius);padding:7px 9px;background:#fbfcfd;color:var(--text);font-size:13px}
   input[type=text]:focus{outline:none;border-color:var(--blue);background:#fff}
   .shared-pills{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
   .shared-pill{background:var(--amber-bg);color:var(--amber-text);border-radius:99px;font-size:11px;padding:2px 10px;font-family:monospace;font-weight:500}
   .stn-badge{font-size:10px;padding:1px 7px;border-radius:99px;background:var(--bg3);color:var(--text2);font-family:sans-serif;margin-left:2px}
   .divider{border:none;border-top:1px solid var(--border);margin:14px 0}
-  .result-stn-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border)}
+  .station-card{padding:0;overflow:hidden}
+  .station-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;background:#fbfcfd;border-bottom:1px solid var(--border)}
+  .station-body{padding:16px}
+  .result-stn-header{display:flex;align-items:center;gap:8px;margin:16px 0 8px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
   .result-stn-header:first-child{padding-top:0;border-top:none}
-  .iter-log{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:11px;font-family:monospace;color:var(--text2);margin-bottom:12px;line-height:1.8}
+  .metric-strip{display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;padding:9px 10px;background:#fbfcfd;border:1px solid var(--border);border-radius:var(--radius)}
+  .iter-log{background:#fbfcfd;border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;font-size:11px;font-family:monospace;color:var(--text2);margin-bottom:12px;line-height:1.8}
   .iter-log .ok{color:var(--green)}
   .iter-log .skip{color:var(--text3)}
   .iter-log .err{color:var(--red)}
@@ -99,6 +108,18 @@
   #traverse-map .leaflet-popup-content{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;line-height:1.6;min-width:160px}
   #traverse-map .leaflet-popup-content b{font-size:13px;display:block;margin-bottom:2px}
   .leaflet-container{font-family:'Segoe UI',system-ui,sans-serif}
+  @media (max-width:720px){
+    .page{padding:14px 10px 24px}
+    .page-header{padding:16px}
+    .page-header h1{font-size:19px}
+    .station-toolbar{align-items:stretch}
+    .station-toolbar input[type=text]{width:100%!important}
+    .station-toolbar .toggle{width:100%}
+    .station-toolbar .toggle button{flex:1}
+    .station-toolbar button.danger{margin-left:0!important;width:100%}
+    .action-bar button{flex:1 1 calc(50% - 8px)}
+    table th,table td{padding:7px 8px}
+  }
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -111,15 +132,15 @@
   <p>貼上格式：點名,X,Y,Z,屬性（屬性可留空）· 相同點名自動視為共同點 · 雙向傳遞 · 閉合差平差 · 高程採平移法（kz=1）· RMS + SD 雙指標</p>
 </div>
 
-<div class="card" style="padding:14px 20px">
-  <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:500;letter-spacing:.03em;text-transform:uppercase">座標傳遞鏈</div>
+<div class="card chain-card">
+  <div class="chain-label">座標傳遞鏈</div>
   <div class="chain-vis" id="chain-area"></div>
 </div>
 
 <div class="station-tabs" id="station-tabs"></div>
 <div id="station-panels"></div>
 
-<div class="btn-row" style="margin-bottom:20px">
+<div class="btn-row action-bar">
   <button class="primary" onclick="addStation()">+ 新增測站</button>
   <button class="success" onclick="runAll()">▶ 執行全站計算</button>
   <button onclick="loadExample()">載入範例資料</button>
@@ -244,8 +265,8 @@ function renderPanels(){
       `<hr class="divider">
       <div class="sec-title" style="margin-bottom:6px">共同點偵測 <span class="badge b-amber">自動比對點名</span> <span class="badge b-purple">支援雙向傳遞</span></div>
       <div class="info-box">系統自動將本站與任意其他站中點名相同的點視為共同點，無論前站或後站皆可，不需手動設定</div>`;
-    return `<div class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    return `<div class="card station-card">
+      <div class="station-toolbar">
         <input type="text" id="sname_${s.id}" value="${s.name}" style="font-size:14px;font-weight:600;width:130px">
         <span style="font-size:12px;color:var(--text2)">此站類型：</span>
         <div class="toggle">
@@ -254,6 +275,7 @@ function renderPanels(){
         </div>
         <button class="danger" style="margin-left:auto" onclick="removeStation(${si})">刪除此站</button>
       </div>
+      <div class="station-body">
       <div class="sec-title" style="margin-bottom:6px">全測站相對座標
         <span class="badge b-blue">點名,X,Y,Z,屬性</span>
         <span style="font-size:11px;color:var(--text3)">屬性可留空</span>
@@ -263,6 +285,7 @@ function renderPanels(){
         oninput="onLP(${si})">${s.localPasteText}</textarea>
       <div class="parse-preview" id="lpv_${si}">${lpPreview(si)}</div>
       ${extra}
+      </div>
     </div>`;
   }).join('');
 }
@@ -581,7 +604,7 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       ${scaleBadge}
       <span class="badge b-gray">旋轉 ${hp.rot.toFixed(4)}°</span>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+    <div class="metric-strip">
       <span style="font-size:11px;color:var(--text2);font-weight:500">RMS：</span>
       E=${rmsTag(hp.rmsE)} N=${rmsTag(hp.rmsN)} H=${rmsTag(hp.rmsH)} 3D=${rmsTag(hp.rms3D)}
       <span style="font-size:11px;color:var(--text2);font-weight:500;margin-left:10px">SD：</span>
@@ -662,7 +685,11 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
     </tr>`;
   });
   html+='</tbody></table></div></div>';
-  html+=`<div class="btn-row"><button onclick="copyTsv('merged')" id="cb_merged">複製合併結果 (TSV)</button></div>`;
+  html+=`<div class="btn-row">
+    <button onclick="copyTsv('merged')" id="cb_merged">複製合併結果 (TSV)</button>
+    <button onclick="downloadMergedCsv()" id="cb_merged_csv">下載合併座標 (CSV)</button>
+    <button class="success" onclick="downloadReport()" id="cb_report">下載報表 (HTML)</button>
+  </div>`;
 
   // 地圖卡片
   html+=`<div class="card" id="map-card">
@@ -686,6 +713,7 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
   document.getElementById('result-area').innerHTML=html;
   window._perTsv=perTsv; window._mergedTsv=mergedTsv;
   window._mpts=mpts; window._currentZone=121;
+  window._lastReportData={results, failedStns, closures, mpts, generatedAt:new Date()};
   setTimeout(()=>renderMap(mpts,121), 80);
 }
 
@@ -702,6 +730,159 @@ function copyTsv(t){
     const b=document.getElementById(bid);
     if(b){const o=b.textContent;b.textContent='✓ 已複製！';setTimeout(()=>b.textContent=o,2000);}
   });
+}
+
+function csvCell(v){
+  const s=String(v??'');
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+}
+function downloadTextFile(filename, content, type){
+  const blob=new Blob([content],{type:type||'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function downloadMergedCsv(){
+  const mpts=window._mpts;
+  if(!mpts||!mpts.length){ alert('請先執行全站計算後再下載 CSV'); return; }
+  const header=['點名','屬性','類型','E絕對座標','N絕對座標','H高程','X,Y','WGS84(N,E)','出現站'];
+  const rows=[header];
+  mpts.forEach(([name,p])=>{
+    const type=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
+    const [wLat,wLon]=twd97ToWgs84(p.E,p.N,window._currentZone||121);
+    rows.push([
+      name,
+      p.attr||'',
+      type,
+      p.E.toFixed(6),
+      p.N.toFixed(6),
+      p.H.toFixed(6),
+      `${p.E.toFixed(3)},${p.N.toFixed(3)}`,
+      `${wLat.toFixed(6)},${wLon.toFixed(6)}`,
+      p.stns.join('、')
+    ]);
+  });
+  const csv='\ufeff'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
+  const stamp=new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
+  downloadTextFile(`TraverseLink_merged_coordinates_${stamp}.csv`,csv,'text/csv;charset=utf-8');
+}
+
+function escHtml(v){
+  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtNum(v,d=6){
+  return (Number.isFinite(v)) ? v.toFixed(d) : '—';
+}
+function stationTypeLabel(s){
+  return s&&s.hasGPS ? 'GPS站' : '傳遞站';
+}
+function qualityLabel(v){
+  if(!Number.isFinite(v)) return '未計算';
+  if(v<0.01) return '良好';
+  if(v<0.05) return '注意';
+  return '需檢核';
+}
+function buildReportHtml(data){
+  const reportDate=data.generatedAt instanceof Date ? data.generatedAt : new Date(data.generatedAt||Date.now());
+  const stationRows=stations.map((s,si)=>{
+    const r=data.results[si];
+    if(!r){
+      return `<tr class="bad"><td>${escHtml(s.name)}</td><td>${stationTypeLabel(s)}</td><td colspan="15">未完成計算：控制點不足或共同點無法連接</td></tr>`;
+    }
+    const hp=r.hp;
+    const q=qualityLabel(hp.rms3D);
+    const cls=q==='良好'?'good':q==='注意'?'warn':'bad';
+    return `<tr>
+      <td>${escHtml(s.name)}</td>
+      <td>${stationTypeLabel(s)}</td>
+      <td>${hp.n}</td>
+      <td>${escHtml(r.sharedNames.join('、'))}</td>
+      <td>${fmtNum(hp.rmsE)}</td><td>${fmtNum(hp.rmsN)}</td><td>${fmtNum(hp.rmsH)}</td><td>${fmtNum(hp.rms3D)}</td>
+      <td>${fmtNum(hp.sdE)}</td><td>${fmtNum(hp.sdN)}</td><td>${fmtNum(hp.sdH)}</td><td>${fmtNum(hp.sd3D)}</td>
+      <td>${fmtNum(hp.scale,8)}</td><td>${fmtNum(hp.rot,4)}</td>
+      <td>${r.adjApplied?`E ${fmtNum(r.adjApplied.corrE,4)} / N ${fmtNum(r.adjApplied.corrN,4)} / H ${fmtNum(r.adjApplied.corrH,4)}`:'—'}</td>
+      <td class="${cls}">${q}</td>
+    </tr>`;
+  }).join('');
+
+  const closureRows=(data.closures||[]).length ? data.closures.map(c=>`
+    <tr>
+      <td>${escHtml(c.fromName)} → ${escHtml(c.toName)}</td>
+      <td>${escHtml(c.relayNames.join('、')||'—')}</td>
+      <td>${escHtml(c.commonPts.join('、'))}</td>
+      <td>${fmtNum(c.dE)}</td><td>${fmtNum(c.dN)}</td><td>${fmtNum(c.dH)}</td><td>${fmtNum(c.closure3D)}</td>
+      <td class="${c.closure3D<0.01?'good':c.closure3D<0.05?'warn':'bad'}">${qualityLabel(c.closure3D)}</td>
+    </tr>`).join('') : '<tr><td colspan="8">無雙端 GPS 閉合段或無閉合差資料</td></tr>';
+
+  const pointRows=(data.mpts||[]).map(([name,p])=>{
+    const type=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
+    return `<tr>
+      <td>${escHtml(name)}</td><td>${escHtml(p.attr||'—')}</td><td>${type}</td>
+      <td>${fmtNum(p.E)}</td><td>${fmtNum(p.N)}</td><td>${fmtNum(p.H)}</td>
+      <td>${escHtml(p.stns.join('、'))}</td>
+    </tr>`;
+  }).join('');
+
+  const suggestions=[];
+  const failed=(data.failedStns||[]);
+  if(failed.length) suggestions.push(`未完成測站：${failed.join('、')}，建議確認至少 2 個共同點且點名完全一致。`);
+  data.results.forEach((r,si)=>{
+    if(!r) return;
+    const s=stations[si], hp=r.hp;
+    if(hp.n<3) suggestions.push(`${s.name} 控制點數為 ${hp.n}，可增加第 3 點以上以提高檢核能力。`);
+    if(hp.rms3D>=0.05 || hp.sd3D>=0.05) suggestions.push(`${s.name} 的 RMS/SD 3D 偏高，建議檢查控制點坐標、點名、稜鏡高與觀測紀錄。`);
+    if(hp.scaleWarn) suggestions.push(`${s.name} 比例尺 ${hp.scale.toFixed(6)} 超出常用檢核範圍，建議確認儀器設定與單位。`);
+  });
+  (data.closures||[]).forEach(c=>{
+    if(c.closure3D>=0.05) suggestions.push(`${c.fromName} → ${c.toName} 閉合差 3D=${c.closure3D.toFixed(4)}m，建議優先複核中間傳遞站與共同點。`);
+  });
+  if(!suggestions.length) suggestions.push('目前各站計算指標未見明顯異常；留存時建議一併保存原始全站資料、GPS 控制點資料、儀器名稱、作業日期與坐標系統。');
+
+  return `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">
+  <title>TraverseLink 計算報表</title>
+  <style>
+    body{font-family:'Segoe UI',Arial,'Noto Sans TC',sans-serif;color:#1a1a1a;margin:28px;line-height:1.5}
+    h1{font-size:22px;margin:0 0 4px} h2{font-size:16px;margin:24px 0 8px}
+    .meta{color:#666;font-size:12px;margin-bottom:18px}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}
+    th,td{border:1px solid #d8d6cf;padding:6px 8px;text-align:left;vertical-align:top}
+    th{background:#f5f5f0;color:#555550;white-space:nowrap}
+    .good{color:#2d6b1a;font-weight:700}.warn{color:#8a5a0a;font-weight:700}.bad{color:#8a2020;font-weight:700}
+    ul{margin-top:6px}.small{font-size:11px;color:#777}
+  </style></head><body>
+  <h1>TraverseLink 計算報表</h1>
+  <div class="meta">產生時間：${escHtml(reportDate.toLocaleString('zh-TW'))} ｜ 測站數：${stations.length} ｜ 成功：${data.results.filter(Boolean).length} ｜ 失敗：${failed.length}</div>
+
+  <h2>各站摘要</h2>
+  <table><thead><tr>
+    <th>站名</th><th>站別</th><th>控制點數</th><th>控制/共同點</th>
+    <th>RMS E</th><th>RMS N</th><th>RMS H</th><th>RMS 3D</th>
+    <th>SD E</th><th>SD N</th><th>SD H</th><th>SD 3D</th>
+    <th>比例尺</th><th>旋轉角</th><th>閉合修正</th><th>檢核</th>
+  </tr></thead><tbody>${stationRows}</tbody></table>
+
+  <h2>閉合差摘要</h2>
+  <table><thead><tr><th>傳遞段</th><th>中間傳遞站</th><th>共同點</th><th>E</th><th>N</th><th>H</th><th>3D</th><th>檢核</th></tr></thead><tbody>${closureRows}</tbody></table>
+
+  <h2>合併點位摘要</h2>
+  <table><thead><tr><th>點名</th><th>屬性</th><th>類型</th><th>E</th><th>N</th><th>H</th><th>出現站</th></tr></thead><tbody>${pointRows}</tbody></table>
+
+  <h2>建議檢查事項</h2>
+  <ul>${suggestions.map(s=>`<li>${escHtml(s)}</li>`).join('')}</ul>
+  <div class="small">RMS/SD 單位為公尺。此報表依目前畫面最後一次計算結果產生。</div>
+  </body></html>`;
+}
+function downloadReport(){
+  const data=window._lastReportData;
+  if(!data){ alert('請先執行全站計算後再下載報表'); return; }
+  const html=buildReportHtml(data);
+  const stamp=new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
+  downloadTextFile(`TraverseLink_report_${stamp}.html`,html,'text/html;charset=utf-8');
 }
 
 function clearAll(){
