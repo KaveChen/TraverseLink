@@ -237,6 +237,25 @@ function gpPreview(text){
   return `<span style="color:var(--green)">解析到 ${keys.length} 個 GPS 控制點：${keys.slice(0,4).join('、')}${keys.length>4?'…':''}</span>`;
 }
 
+function addGpsOnlyPointsToMerge(mmap){
+  const localNames=getAllNames();
+  stations.forEach(s=>{
+    if(!s.hasGPS) return;
+    const gpsMap=parseGPS(s.gpsPasteText);
+    Object.entries(gpsMap).forEach(([name,g])=>{
+      if(localNames.has(name)) return;
+      const E=parseFloat(g.gE), N=parseFloat(g.gN), H=parseFloat(g.gH)||0;
+      if(!Number.isFinite(E)||!Number.isFinite(N)) return;
+      if(!mmap[name]){
+        mmap[name]={E,N,H,attr:'',tag:'gps',stns:[s.name]};
+        return;
+      }
+      if(!mmap[name].stns.includes(s.name)) mmap[name].stns.push(s.name);
+      mmap[name].E=E; mmap[name].N=N; mmap[name].H=H; mmap[name].tag='gps';
+    });
+  });
+}
+
 function render(){ renderChain(); renderTabs(); renderPanels(); }
 
 function renderChain(){
@@ -653,6 +672,7 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       }
     });
   });
+  addGpsOnlyPointsToMerge(mmap);
   const mpts=Object.entries(mmap);
   const dupCnt=mpts.filter(([,v])=>v.stns.length>1).length;
 
