@@ -64,11 +64,11 @@ T1,55.000,120.000,10.900,Power manhole
 
 ### GPS Absolute Coordinates (GPS stations only)
 ```
-PointName,E,N,H
-P1,246440.000,2665050.000,52.250
+PointName,E,N,H,Attribute
+P1,246440.000,2665050.000,52.250,Control point
 P2,246501.745,2665128.661,52.820
 ```
-Point names must exactly match the total station data. Case-sensitive.
+`Attribute` is optional. Point names must exactly match the total station data when used for pairing. Case-sensitive.
 
 ---
 

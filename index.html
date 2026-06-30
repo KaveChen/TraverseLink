@@ -169,7 +169,7 @@ function parseGPS(text){
   (text||'').trim().split('\n').forEach(line=>{
     const raw=line.trim(); if(!raw) return;
     const p=raw.split(/[,\t]+/).map(s=>s.trim());
-    if(p.length>=4) map[p[0]]={gE:p[1],gN:p[2],gH:p[3]};
+    if(p.length>=4) map[p[0]]={gE:p[1],gN:p[2],gH:p[3],attr:p[4]||''};
   });
   return map;
 }
@@ -247,11 +247,12 @@ function addGpsOnlyPointsToMerge(mmap){
       const E=parseFloat(g.gE), N=parseFloat(g.gN), H=parseFloat(g.gH)||0;
       if(!Number.isFinite(E)||!Number.isFinite(N)) return;
       if(!mmap[name]){
-        mmap[name]={E,N,H,attr:'',tag:'gps',stns:[s.name]};
+        mmap[name]={E,N,H,attr:g.attr||'',tag:'gps',stns:[s.name]};
         return;
       }
       if(!mmap[name].stns.includes(s.name)) mmap[name].stns.push(s.name);
       mmap[name].E=E; mmap[name].N=N; mmap[name].H=H; mmap[name].tag='gps';
+      if(g.attr&&!mmap[name].attr) mmap[name].attr=g.attr;
     });
   });
 }
@@ -277,9 +278,9 @@ function renderPanels(){
     if(si!==activeIdx) return '';
     const extra=s.hasGPS?`
       <hr class="divider">
-      <div class="sec-title" style="margin-bottom:6px">GPS 絕對座標 <span class="badge b-green">點名,E,N,H</span></div>
+      <div class="sec-title" style="margin-bottom:6px">GPS 絕對座標 <span class="badge b-green">點名,E,N,H,屬性</span></div>
       <div class="warn-box">點名需與全測站資料完全一致，系統依點名自動配對</div>
-      <textarea id="gp_${s.id}" placeholder="直接貼上，格式：點名,E,N,H&#10;例：A1,246523.450,2665134.220,52.180" oninput="onGP(${si})">${s.gpsPasteText}</textarea>
+      <textarea id="gp_${s.id}" placeholder="直接貼上，格式：點名,E,N,H,屬性（屬性可省略）&#10;例：A1,246523.450,2665134.220,52.180,控制點" oninput="onGP(${si})">${s.gpsPasteText}</textarea>
       <div class="parse-preview" id="gpv_${s.id}">${gpPreview(s.gpsPasteText)}</div>`:
       `<hr class="divider">
       <div class="sec-title" style="margin-bottom:6px">共同點偵測 <span class="badge b-amber">自動比對點名</span> <span class="badge b-purple">支援雙向傳遞</span></div>
