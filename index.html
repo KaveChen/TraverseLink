@@ -50,9 +50,9 @@
   table.merged th{background:var(--blue);color:#fff}
   table tr:hover td{background:var(--bg2)}
   .tag{font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500;font-family:sans-serif;white-space:nowrap}
-  .tag-gps{background:var(--green-bg);color:var(--green-text)}
-  .tag-shared{background:var(--amber-bg);color:var(--amber-text)}
-  .tag-new{background:var(--blue-bg);color:var(--blue-text)}
+  .tag-gps-edm{background:var(--green-bg);color:var(--green-text)}
+  .tag-gps-only{background:var(--purple-bg);color:var(--purple-text)}
+  .tag-edm{background:var(--blue-bg);color:var(--blue-text)}
   .rms-good{background:var(--rms-good-bg);color:var(--rms-good);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
   .rms-warn{background:var(--rms-warn-bg);color:var(--rms-warn);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
   .rms-bad{background:var(--rms-bad-bg);color:var(--rms-bad);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
@@ -247,14 +247,24 @@ function addGpsOnlyPointsToMerge(mmap){
       const E=parseFloat(g.gE), N=parseFloat(g.gN), H=parseFloat(g.gH)||0;
       if(!Number.isFinite(E)||!Number.isFinite(N)) return;
       if(!mmap[name]){
-        mmap[name]={E,N,H,attr:g.attr||'',tag:'gps',stns:[s.name]};
+        mmap[name]={E,N,H,attr:g.attr||'',tag:'gps-only',stns:[s.name]};
         return;
       }
       if(!mmap[name].stns.includes(s.name)) mmap[name].stns.push(s.name);
-      mmap[name].E=E; mmap[name].N=N; mmap[name].H=H; mmap[name].tag='gps';
+      mmap[name].E=E; mmap[name].N=N; mmap[name].H=H; mmap[name].tag='gps-only';
       if(g.attr&&!mmap[name].attr) mmap[name].attr=g.attr;
     });
   });
+}
+
+function pointTypeLabel(tag){
+  if(tag==='gps-only') return 'GPS-only';
+  if(tag==='gps') return 'GPS+EDM';
+  return 'EDM';
+}
+function pointTypeBadge(tag){
+  const cls=tag==='gps-only'?'tag-gps-only':tag==='gps'?'tag-gps-edm':'tag-edm';
+  return `<span class="tag ${cls}">${pointTypeLabel(tag)}</span>`;
 }
 
 function render(){ renderChain(); renderTabs(); renderPanels(); }
@@ -637,8 +647,8 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       <th>全站X</th><th>全站Y</th><th>全站Z</th>
       <th>E 絕對座標</th><th>N 絕對座標</th><th>H 高程</th><th>X,Y</th><th>平差修正 (m)</th></tr></thead><tbody>`;
     r.pts.forEach(p=>{
-      const th=p.tag==='gps'?'<span class="tag tag-gps">GPS控制點</span>':p.tag==='shared'?'<span class="tag tag-shared">共同點</span>':'<span class="tag tag-new">新點位</span>';
-      const ts=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
+      const th=pointTypeBadge(p.tag);
+      const ts=pointTypeLabel(p.tag);
       perTsv+=`${s.name}\t${p.name}\t${p.attr}\t${ts}\t${p.lx.toFixed(3)}\t${p.ly.toFixed(3)}\t${p.lz.toFixed(3)}\t${p.E.toFixed(6)}\t${p.N.toFixed(6)}\t${p.H.toFixed(6)}\t${p.E.toFixed(3)},${p.N.toFixed(3)}\n`;
       html+=`<tr><td style="font-family:sans-serif;font-weight:500">${p.name}</td>
         <td style="font-family:sans-serif;color:var(--text2)">${p.attr||'—'}</td>
@@ -688,8 +698,8 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       <th>E 絕對座標</th><th>N 絕對座標</th><th>H 高程</th>
       <th>X, Y</th><th>WGS84 (N, E)</th><th>出現站</th></tr></thead><tbody>`;
   mpts.forEach(([name,p])=>{
-    const th=p.tag==='gps'?'<span class="tag tag-gps">GPS控制點</span>':p.tag==='shared'?'<span class="tag tag-shared">共同點</span>':'<span class="tag tag-new">新點位</span>';
-    const ts=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
+    const th=pointTypeBadge(p.tag);
+    const ts=pointTypeLabel(p.tag);
     const [wLat,wLon]=twd97ToWgs84(p.E,p.N,window._currentZone||121);
     const wgs84=`${wLat.toFixed(6)},${wLon.toFixed(6)}`;
     mergedTsv+=`${name}\t${p.attr}\t${ts}\t${p.E.toFixed(6)}\t${p.N.toFixed(6)}\t${p.H.toFixed(6)}\t${p.E.toFixed(3)},${p.N.toFixed(3)}\t${wgs84}\t${p.stns.join(', ')}\n`;
@@ -774,7 +784,7 @@ function downloadMergedCsv(){
   const header=['點名','屬性','類型','E絕對座標','N絕對座標','H高程','X,Y','WGS84(N,E)','出現站'];
   const rows=[header];
   mpts.forEach(([name,p])=>{
-    const type=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
+    const type=pointTypeLabel(p.tag);
     const [wLat,wLon]=twd97ToWgs84(p.E,p.N,window._currentZone||121);
     rows.push([
       name,
@@ -841,7 +851,7 @@ function buildReportHtml(data){
     </tr>`).join('') : '<tr><td colspan="8">無雙端 GPS 閉合段或無閉合差資料</td></tr>';
 
   const pointRows=(data.mpts||[]).map(([name,p])=>{
-    const type=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
+    const type=pointTypeLabel(p.tag);
     return `<tr>
       <td>${escHtml(name)}</td><td>${escHtml(p.attr||'—')}</td><td>${type}</td>
       <td>${fmtNum(p.E)}</td><td>${fmtNum(p.N)}</td><td>${fmtNum(p.H)}</td>
@@ -973,19 +983,19 @@ function renderMap(mpts,lon0Deg){
   });
   cartoLight.addTo(_leafletMap);
 
-  const gpsGroup=L.layerGroup().addTo(_leafletMap);
-  const sharedGroup=L.layerGroup().addTo(_leafletMap);
-  const newGroup=L.layerGroup().addTo(_leafletMap);
+  const gpsEdmGroup=L.layerGroup().addTo(_leafletMap);
+  const gpsOnlyGroup=L.layerGroup().addTo(_leafletMap);
+  const edmGroup=L.layerGroup().addTo(_leafletMap);
 
   const bounds=[];
   mpts.forEach(([name,p])=>{
     const ll=twd97ToWgs84(p.E,p.N,lon0Deg);
     bounds.push(ll);
     let col,fill,r;
-    if(p.tag==='gps')     { col='#1b4510'; fill='#2d6b1a'; r=9; }
-    else if(p.tag==='shared'){ col='#5c3a05'; fill='#c07a10'; r=7; }
-    else                   { col='#0d3d7a'; fill='#1a5fa8'; r=5; }
-    const typeLabel=p.tag==='gps'?'GPS控制點':p.tag==='shared'?'共同點':'新點位';
+    if(p.tag==='gps')          { col='#1b4510'; fill='#2d6b1a'; r=9; }
+    else if(p.tag==='gps-only'){ col='#4b236f'; fill='#7352a3'; r=8; }
+    else                       { col='#0d3d7a'; fill='#1a5fa8'; r=5; }
+    const typeLabel=pointTypeLabel(p.tag);
     const mk=L.circleMarker(ll,{radius:r,color:col,fillColor:fill,fillOpacity:0.85,weight:2});
     mk.bindTooltip(name,{permanent:false,direction:'top',offset:[0,-8],opacity:0.92});
     mk.bindPopup(
@@ -997,14 +1007,14 @@ function renderMap(mpts,lon0Deg){
       (p.attr?`<br><b>屬性</b> ${p.attr}`:'')+
       `<br><b>出現站</b> ${p.stns.join('、')}`
     );
-    if(p.tag==='gps') gpsGroup.addLayer(mk);
-    else if(p.tag==='shared') sharedGroup.addLayer(mk);
-    else newGroup.addLayer(mk);
+    if(p.tag==='gps') gpsEdmGroup.addLayer(mk);
+    else if(p.tag==='gps-only') gpsOnlyGroup.addLayer(mk);
+    else edmGroup.addLayer(mk);
   });
 
   L.control.layers(
     {'地圖 (CartoDB Light)':cartoLight,'地圖 (OpenStreetMap)':osmLayer},
-    {'GPS控制點':gpsGroup,'共同點':sharedGroup,'新點位':newGroup},
+    {'GPS+EDM':gpsEdmGroup,'GPS-only':gpsOnlyGroup,'EDM':edmGroup},
     {position:'topright',collapsed:false}
   ).addTo(_leafletMap);
 

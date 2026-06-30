@@ -42,6 +42,7 @@ Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL
 ### Results
 - **Per-station results** — individual Helmert parameters, RMS, shared points, and adjustment corrections
 - **Merged result table** — all unique points from all stations in a single deduplicated table with source station column
+- **Point source type** — merged outputs distinguish `GPS-only`, `GPS+EDM`, and `EDM`
 - **RMS color coding**:
   - Green: < 0.01 m (excellent)
   - Yellow: 0.01 – 0.05 m (acceptable)
