@@ -31,6 +31,8 @@
   .chain-card{padding:12px 16px;margin-bottom:12px}
   .chain-label{font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
   .sec-title{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--text)}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .card-head .sec-title{margin-bottom:0}
   .badge{font-size:11px;padding:2px 9px;border-radius:99px;font-weight:500}
   .b-blue{background:var(--blue-bg);color:var(--blue-text)}
   .b-green{background:var(--green-bg);color:var(--green-text)}
@@ -56,15 +58,31 @@
   .rms-good{background:var(--rms-good-bg);color:var(--rms-good);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
   .rms-warn{background:var(--rms-warn-bg);color:var(--rms-warn);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
   .rms-bad{background:var(--rms-bad-bg);color:var(--rms-bad);font-weight:600;border-radius:4px;padding:1px 7px;font-family:monospace}
+  .result-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:4px;background:#e9edf2;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:12px}
+  .result-tab{padding:7px 15px;font-size:12px;border-radius:7px;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2);font-weight:700;transition:all .15s}
+  .result-tab:hover{border-color:var(--border2);background:var(--bg2)}
+  .result-tab.active{background:#fff;color:var(--blue-text);border-color:var(--border);box-shadow:var(--shadow-sm)}
+  .empty-state{border:1px dashed var(--border2);border-radius:var(--radius);padding:16px;text-align:center;color:var(--text2);background:#fbfcfd}
+  .summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+  .summary-tile{border:1px solid var(--border);border-radius:var(--radius);background:#fbfcfd;padding:10px 12px}
+  button.summary-tile{text-align:left;min-height:auto;box-shadow:none}
+  button.summary-tile:hover{border-color:var(--text3);box-shadow:var(--shadow-sm)}
+  .summary-tile.good{border-color:#b8dec9;background:var(--green-bg)}
+  .summary-tile.warn{border-color:#efd09a;background:var(--amber-bg)}
+  .summary-tile.bad{border-color:#e7b6b6;background:var(--red-bg)}
+  .summary-tile.neutral{border-color:var(--border);background:#fbfcfd}
+  .summary-tile b{display:block;font-size:16px;line-height:1.2;color:var(--text)}
+  .summary-tile span{font-size:11px;color:var(--text2)}
   .chain-vis{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:2px 0}
-  .chain-node{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;border:1px solid transparent;box-shadow:0 1px 0 rgba(0,0,0,.04)}
+  .chain-node{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;border:1px solid transparent;box-shadow:0 1px 0 rgba(0,0,0,.04);min-height:30px;display:inline-flex;align-items:center;gap:6px}
+  button.chain-node:hover{box-shadow:var(--shadow-sm)}
+  button.chain-node.active{outline:2px solid var(--blue);outline-offset:2px}
+  .chain-node.status-good{background:var(--green-bg)!important;color:var(--green-text)!important;border-color:var(--green)!important}
+  .chain-node.status-warn{background:var(--amber-bg)!important;color:var(--amber-text)!important;border-color:#c07a10!important}
+  .chain-node.status-bad{background:var(--red-bg)!important;color:var(--red-text)!important;border-color:#b03030!important}
+  .chain-node.status-neutral{background:#f5f6f8!important;color:var(--text2)!important;border-color:var(--border2)!important}
+  .chain-status-dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.85}
   .chain-arrow{color:var(--text3);font-size:15px}
-  .station-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:4px;background:#e9edf2;border:1px solid var(--border);border-radius:var(--radius-lg)}
-  .stab{padding:7px 15px;font-size:12px;border-radius:7px;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2);font-weight:700;transition:all .15s}
-  .stab:hover{border-color:var(--border2);background:var(--bg2)}
-  .stab.active{background:#fff;color:var(--blue-text);border-color:var(--border);box-shadow:var(--shadow-sm)}
-  .stab.has-gps{border-left:3px solid var(--green)}
-  .stab.no-gps{border-left:3px solid #c07a10}
   .toggle{display:flex}
   .toggle button{border-radius:0;border-right-width:0;font-size:12px;padding:5px 12px}
   .toggle button:first-child{border-radius:var(--radius) 0 0 var(--radius)}
@@ -81,10 +99,15 @@
   button.danger{color:var(--red);border-color:#e0b0b0}
   button.danger:hover{background:var(--red-bg)}
   .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-  .action-bar{position:sticky;top:0;z-index:5;background:rgba(246,247,249,.93);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
+  .action-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:0}
   textarea{width:100%;min-height:132px;border:1px solid var(--border2);border-radius:var(--radius);padding:11px 12px;font-size:12px;font-family:'Courier New',monospace;background:#fbfcfd;color:var(--text);resize:vertical;line-height:1.7}
   textarea:focus{outline:none;border-color:var(--blue);background:#fff}
   .parse-preview{font-size:11px;color:var(--text2);margin-top:6px;min-height:18px}
+  .input-diagnostics{margin-top:8px;display:grid;gap:5px}
+  .input-diagnostic{font-size:11px;border-radius:var(--radius);padding:6px 8px;line-height:1.45}
+  .input-diagnostic.ok{background:var(--green-bg);color:var(--green-text)}
+  .input-diagnostic.warn{background:var(--amber-bg);color:var(--amber-text)}
+  .input-diagnostic.bad{background:var(--red-bg);color:var(--red-text)}
   input[type=text]{border:1px solid var(--border2);border-radius:var(--radius);padding:7px 9px;background:#fbfcfd;color:var(--text);font-size:13px}
   input[type=text]:focus{outline:none;border-color:var(--blue);background:#fff}
   .shared-pills{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
@@ -118,6 +141,7 @@
     .station-toolbar .toggle button{flex:1}
     .station-toolbar button.danger{margin-left:0!important;width:100%}
     .action-bar button{flex:1 1 calc(50% - 8px)}
+    .summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     table th,table td{padding:7px 8px}
   }
 </style>
@@ -132,26 +156,34 @@
   <p>貼上格式：點名,X,Y,Z,屬性（屬性可留空）· 相同點名自動視為共同點 · 雙向傳遞 · 閉合差平差 · 高程採平移法（kz=1）· RMS + SD 雙指標</p>
 </div>
 
+<div id="priority-results-area"></div>
+
 <div class="card chain-card">
-  <div class="chain-label">座標傳遞鏈</div>
+  <div class="card-head">
+    <div class="sec-title">座標傳遞鏈 <span class="badge b-gray">點選測站即可編輯</span></div>
+    <div class="action-bar">
+      <button class="primary" onclick="addStation()">+ 新增測站</button>
+      <button class="success" id="run-button" onclick="runAll()">▶ 執行全站計算</button>
+      <button onclick="saveProjectJson()">儲存專案</button>
+      <button onclick="openProjectFile()">載入專案</button>
+      <button onclick="loadExample()">載入範例資料</button>
+      <button class="danger" onclick="clearAll()">清除全部</button>
+    </div>
+  </div>
   <div class="chain-vis" id="chain-area"></div>
+  <input type="file" id="project-file-input" accept="application/json,.json" style="display:none" onchange="loadProjectJson(event)">
 </div>
 
-<div class="station-tabs" id="station-tabs"></div>
 <div id="station-panels"></div>
-
-<div class="btn-row action-bar">
-  <button class="primary" onclick="addStation()">+ 新增測站</button>
-  <button class="success" onclick="runAll()">▶ 執行全站計算</button>
-  <button onclick="loadExample()">載入範例資料</button>
-  <button class="danger" onclick="clearAll()">清除全部</button>
-</div>
 
 <div id="result-area"></div>
 </div>
 
 <script>
-let stations=[], activeIdx=0;
+let stations=[], activeIdx=0, activePriorityTab='calc';
+const PROJECT_SCHEMA_VERSION=1;
+const QUALITY_GOOD_LIMIT=0.020;
+const QUALITY_BAD_LIMIT=0.050;
 function uid(){ return Math.random().toString(36).slice(2,7); }
 
 function parsePaste(text){
@@ -180,11 +212,15 @@ function collectInputs(si){
   const gp=document.getElementById('gp_'+s.id); if(gp) s.gpsPasteText=gp.value;
 }
 function saveAll(){ stations.forEach((_,si)=>collectInputs(si)); }
+function markInputsChanged(){
+  if(window._lastReportData) clearResultState();
+}
 
 function addStation(name,gpsFlag,localText,gpsText){
   const id=uid();
   stations.push({id,name:name||('測站'+(stations.length+1)),
     hasGPS:gpsFlag!==false,localPasteText:localText||'',gpsPasteText:gpsText||''});
+  markInputsChanged();
   activeIdx=stations.length-1; render();
 }
 function removeStation(si){
@@ -192,20 +228,32 @@ function removeStation(si){
   if(stations.length<=1){ alert('至少保留一個測站'); return; }
   if(!confirm('確定刪除「'+stations[si].name+'」？')) return;
   stations.splice(si,1);
+  markInputsChanged();
   if(activeIdx>=stations.length) activeIdx=stations.length-1;
   render();
 }
 function setActive(si){ saveAll(); activeIdx=si; render(); }
-function toggleGPS(si,val){ collectInputs(si); stations[si].hasGPS=val; render(); }
+function toggleGPS(si,val){ collectInputs(si); stations[si].hasGPS=val; markInputsChanged(); render(); }
+function onStationName(si){
+  const s=stations[si];
+  const nm=document.getElementById('sname_'+s.id); if(nm) s.name=nm.value;
+  markInputsChanged();
+  renderChain();
+}
 function onLP(si){
   const s=stations[si];
   const el=document.getElementById('lp_'+s.id); if(el) s.localPasteText=el.value;
   const pv=document.getElementById('lpv_'+si); if(pv) pv.innerHTML=lpPreview(si);
+  markInputsChanged();
+  renderChain();
 }
 function onGP(si){
   const s=stations[si];
   const el=document.getElementById('gp_'+s.id); if(el) s.gpsPasteText=el.value;
-  const pv=document.getElementById('gpv_'+s.id); if(pv) pv.innerHTML=gpPreview(s.gpsPasteText);
+  const pv=document.getElementById('gpv_'+s.id); if(pv) pv.innerHTML=gpPreview(s.gpsPasteText,si);
+  const lpv=document.getElementById('lpv_'+si); if(lpv) lpv.innerHTML=lpPreview(si);
+  markInputsChanged();
+  renderChain();
 }
 
 function getAllNames(){
@@ -213,10 +261,120 @@ function getAllNames(){
   stations.forEach(s=>parsePaste(s.localPasteText).forEach(r=>names.add(r.name)));
   return names;
 }
+function analyzeDelimitedRows(text,kind){
+  const issues=[];
+  const names=new Map();
+  const rows=[];
+  (text||'').split('\n').forEach((line,idx)=>{
+    const raw=line.trim();
+    if(!raw) return;
+    const p=raw.split(/[,\t]+/).map(s=>s.trim());
+    const rowNo=idx+1;
+    const minCols=kind==='gps'?4:3;
+    if(p.length<minCols){
+      issues.push({level:'bad',text:`第 ${rowNo} 列欄位不足：${raw}`});
+      return;
+    }
+    const name=p[0];
+    if(!name) issues.push({level:'bad',text:`第 ${rowNo} 列缺少點名`});
+    const nums=kind==='gps'
+      ? [[1,'E'],[2,'N'],[3,'H']]
+      : [[1,'X'],[2,'Y']];
+    if(kind!=='gps'&&p.length>=4) nums.push([3,'Z']);
+    nums.forEach(([pos,label])=>{
+      if(p[pos]===''||!Number.isFinite(parseFloat(p[pos]))){
+        issues.push({level:'bad',text:`第 ${rowNo} 列 ${label} 不是有效數字`});
+      }
+    });
+    if(kind!=='gps'&&p.length===3){
+      issues.push({level:'warn',text:`第 ${rowNo} 列未填 Z，高程會以 0 處理`});
+    }
+    if(name){
+      if(names.has(name)) issues.push({level:'warn',text:`點名「${name}」在第 ${names.get(name)}、${rowNo} 列重複`});
+      else names.set(name,rowNo);
+    }
+    rows.push({name,rowNo});
+  });
+  return {rows,issues,names:[...names.keys()]};
+}
+function diagnosticsHtml(items){
+  if(!items.length) return '';
+  return `<div class="input-diagnostics">${items.map(item=>
+    `<div class="input-diagnostic ${item.level}">${escHtml(item.text)}</div>`
+  ).join('')}</div>`;
+}
+function localDiagnostics(si){
+  const s=stations[si];
+  const analysis=analyzeDelimitedRows(s.localPasteText,'local');
+  const issues=[...analysis.issues];
+  const rows=parsePaste(s.localPasteText);
+  if(!rows.length) return issues;
+
+  if(s.hasGPS){
+    const gpsMap=parseGPS(s.gpsPasteText);
+    const matched=rows.filter(r=>gpsMap[r.name]).map(r=>r.name);
+    if(!Object.keys(gpsMap).length){
+      issues.push({level:'warn',text:'本站設定為 GPS 站，但尚未輸入 GPS 絕對座標'});
+    } else if(matched.length<2){
+      issues.push({level:'warn',text:`本站目前只有 ${matched.length} 個全站/GPS 同名控制點，至少 2 個才可計算`});
+    }
+  } else {
+    const shared=rows.filter(r=>
+      stations.some((os,osi)=>osi!==si&&parsePaste(os.localPasteText).some(or=>or.name===r.name))
+    );
+    if(shared.length<2){
+      issues.push({level:'warn',text:`本站目前偵測到 ${shared.length} 個共同點，至少 2 個才可傳遞計算`});
+    }
+  }
+  return issues;
+}
+function gpsDiagnostics(si){
+  const s=stations[si];
+  const analysis=analyzeDelimitedRows(s.gpsPasteText,'gps');
+  const issues=[...analysis.issues];
+  const gpsNames=Object.keys(parseGPS(s.gpsPasteText));
+  if(!gpsNames.length) return issues;
+  const localNames=new Set(parsePaste(s.localPasteText).map(r=>r.name));
+  const matched=gpsNames.filter(name=>localNames.has(name));
+  const gpsOnly=gpsNames.filter(name=>!localNames.has(name));
+  if(matched.length<2){
+    issues.push({level:'warn',text:`GPS 控制點中只有 ${matched.length} 個可與本站全站點配對，本站轉換至少需要 2 個`});
+  }
+  if(gpsOnly.length){
+    issues.push({level:'warn',text:`${gpsOnly.length} 個 GPS 點未出現在本站全站資料，會作為 GPS-only 點位合併，不參與本站轉換`});
+  }
+  return issues;
+}
+function stationInputIssues(si){
+  const s=stations[si];
+  const issues=localDiagnostics(si);
+  if(s.hasGPS) issues.push(...gpsDiagnostics(si));
+  return issues;
+}
+function stationStatus(si,data=window._lastReportData){
+  if(data&&Array.isArray(data.results)){
+    const r=data.results[si];
+    if(!r) return {level:'bad',label:'未完成',detail:'控制點不足'};
+    if(r.hp.rms3D>=QUALITY_BAD_LIMIT||r.hp.sd3D>=QUALITY_BAD_LIMIT) return {level:'bad',label:'需檢核',detail:`RMS 3D ${r.hp.rms3D.toFixed(4)} / SD 3D ${r.hp.sd3D.toFixed(4)}`};
+    if(r.hp.rms3D>=QUALITY_GOOD_LIMIT||r.hp.sd3D>=QUALITY_GOOD_LIMIT) return {level:'warn',label:'注意',detail:`RMS 3D ${r.hp.rms3D.toFixed(4)} / SD 3D ${r.hp.sd3D.toFixed(4)}`};
+    return {level:'good',label:'良好',detail:`RMS 3D ${r.hp.rms3D.toFixed(4)} / SD 3D ${r.hp.sd3D.toFixed(4)}`};
+  }
+  const issues=stationInputIssues(si);
+  if(issues.some(i=>i.level==='bad')) return {level:'bad',label:'格式錯誤',detail:'請修正貼上資料'};
+  if(issues.some(i=>i.level==='warn')) return {level:'warn',label:'待補資料',detail:'共同點或控制點不足'};
+  return {level:'neutral',label:'未計算',detail:'等待執行'};
+}
+function statusBadge(status){
+  const cls=status.level==='good'?'b-green':status.level==='warn'?'b-amber':status.level==='bad'?'b-red':'b-gray';
+  return `<span class="badge ${cls}">${status.label}</span>`;
+}
 function lpPreview(si){
   const s=stations[si];
   const rows=parsePaste(s.localPasteText);
-  if(!rows.length) return '<span style="color:var(--text3)">尚未輸入資料</span>';
+  if(!rows.length){
+    const issues=localDiagnostics(si);
+    return '<span style="color:var(--text3)">尚未輸入資料</span>'+diagnosticsHtml(issues);
+  }
   const hasAttr=rows.some(x=>x.attr);
   if(!s.hasGPS){
     const allNames=getAllNames();
@@ -227,14 +385,18 @@ function lpPreview(si){
       ? `<div class="shared-pills">${shared.map(r=>`<span class="shared-pill">${r.name}</span>`).join('')}</div>`
       : '<span style="color:#c07a10"> 尚未偵測到共同點</span>';
     return `<span style="color:var(--green)">解析到 ${rows.length} 個點${hasAttr?' · 含屬性欄':''}</span>`
-      +`<span style="color:var(--amber)"> · 偵測共同點 ${shared.length} 個：</span>${pills}`;
+      +`<span style="color:var(--amber)"> · 偵測共同點 ${shared.length} 個：</span>${pills}`
+      +diagnosticsHtml(localDiagnostics(si));
   }
-  return `<span style="color:var(--green)">解析到 ${rows.length} 個點${hasAttr?' · 含屬性欄':''}</span>`;
+  return `<span style="color:var(--green)">解析到 ${rows.length} 個點${hasAttr?' · 含屬性欄':''}</span>`
+    +diagnosticsHtml(localDiagnostics(si));
 }
-function gpPreview(text){
+function gpPreview(text,si){
   const m=parseGPS(text); const keys=Object.keys(m);
-  if(!keys.length) return '<span style="color:var(--text3)">尚未輸入資料</span>';
-  return `<span style="color:var(--green)">解析到 ${keys.length} 個 GPS 控制點：${keys.slice(0,4).join('、')}${keys.length>4?'…':''}</span>`;
+  const issues=Number.isInteger(si)?gpsDiagnostics(si):[];
+  if(!keys.length) return '<span style="color:var(--text3)">尚未輸入資料</span>'+diagnosticsHtml(issues);
+  return `<span style="color:var(--green)">解析到 ${keys.length} 個 GPS 控制點：${keys.slice(0,4).map(escHtml).join('、')}${keys.length>4?'…':''}</span>`
+    +diagnosticsHtml(issues);
 }
 
 function addGpsOnlyPointsToMerge(mmap){
@@ -267,21 +429,141 @@ function pointTypeBadge(tag){
   return `<span class="tag ${cls}">${pointTypeLabel(tag)}</span>`;
 }
 
-function render(){ renderChain(); renderTabs(); renderPanels(); }
+function setPriorityTab(tab){
+  activePriorityTab=tab==='closure'?'closure':'calc';
+  renderPriorityResults();
+}
+function focusFirstStatus(level){
+  const data=window._lastReportData;
+  const idx=stations.findIndex((_,si)=>stationStatus(si,data).level===level);
+  if(idx<0) return;
+  setActive(idx);
+  const panel=document.getElementById('station-panels');
+  if(panel&&panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
 
+function renderPriorityResults(data=window._lastReportData){
+  const area=document.getElementById('priority-results-area');
+  if(!area) return;
+  const hasResults=data&&Array.isArray(data.results);
+  const active=activePriorityTab==='closure'?'closure':'calc';
+  let body='';
+
+  if(!hasResults){
+    body=`<div class="empty-state">尚未執行計算。完成測站資料後，請在「座標傳遞鏈」按下執行全站計算。</div>`;
+  } else if(active==='calc'){
+    const results=data.results;
+    const failed=Array.isArray(data.failedStns)?data.failedStns:[];
+    const statuses=stations.map((_,si)=>stationStatus(si,data));
+    const good=statuses.filter(s=>s.level==='good').length;
+    const warn=statuses.filter(s=>s.level==='warn').length;
+    const bad=statuses.filter(s=>s.level==='bad').length;
+    body+=`<div class="summary-grid">
+      <button type="button" class="summary-tile good" onclick="focusFirstStatus('good')"><b>${good}</b><span>良好</span></button>
+      <button type="button" class="summary-tile warn" onclick="focusFirstStatus('warn')"><b>${warn}</b><span>注意</span></button>
+      <button type="button" class="summary-tile bad" onclick="focusFirstStatus('bad')"><b>${bad}</b><span>需檢核 / 未完成</span></button>
+      <button type="button" class="summary-tile neutral" onclick="setPriorityTab('closure')"><b>${(data.closures||[]).length}</b><span>閉合傳遞段</span></button>
+    </div>`;
+    body+=`<div class="tbl-wrap"><table>
+      <thead><tr><th>測站</th><th>類型</th><th>狀態</th><th>控制點</th><th>RMS 3D</th><th>SD 3D</th><th>共同點 / 提示</th></tr></thead><tbody>`;
+    stations.forEach((s,si)=>{
+      const r=results[si];
+      const status=statuses[si];
+      if(!r){
+        body+=`<tr><td style="font-family:sans-serif;font-weight:600">${escHtml(s.name)}</td><td style="font-family:sans-serif">${stationTypeLabel(s)}</td><td>${statusBadge(status)}</td><td>—</td><td>—</td><td>—</td><td style="font-family:sans-serif;color:var(--text2)">${escHtml(status.detail)}</td></tr>`;
+        return;
+      }
+      body+=`<tr>
+        <td style="font-family:sans-serif;font-weight:600">${escHtml(s.name)}</td>
+        <td style="font-family:sans-serif">${stationTypeLabel(s)}</td>
+        <td>${statusBadge(status)}</td>
+        <td>${r.hp.n}</td>
+        <td>${rmsTag(r.hp.rms3D)}</td>
+        <td>${rmsTag(r.hp.sd3D)}</td>
+        <td style="font-family:sans-serif">${r.sharedNames.map(escHtml).join('、')}</td>
+      </tr>`;
+    });
+    body+='</tbody></table></div>';
+    const iterLog=window._lastIterLog||[];
+    if(iterLog.length){
+      body+='<div class="iter-log" style="margin-top:12px">';
+      iterLog.forEach(({round,items})=>{
+        body+=`<div><span class="round">第 ${round} 輪：</span> ${items.join(' &nbsp;|&nbsp; ')}</div>`;
+      });
+      if(failed.length) body+=`<div class="err" style="margin-top:4px">✕ 無法計算（控制點始終不足）：${failed.join('、')}</div>`;
+      body+='</div>';
+    }
+  } else {
+    const closures=data.closures||[];
+    const adjLog=window._lastAdjLog||[];
+    if(!closures.length&&!adjLog.length){
+      body='<div class="empty-state">尚無閉合差平差資料。需有首末兩端皆含 GPS 控制點的傳遞段，才會產生閉合差。</div>';
+    } else {
+      if(adjLog.length){
+        body+='<div class="iter-log">';
+        adjLog.forEach(line=>{ body+=`<div>${line}</div>`; });
+        body+='</div>';
+      }
+      if(closures.length){
+        body+=`<div class="tbl-wrap" style="margin-top:12px"><table>
+          <thead><tr>
+            <th>傳遞段</th><th>中間傳遞站</th><th>共同點</th>
+            <th>閉合差 E (m)</th><th>閉合差 N (m)</th><th>閉合差 H (m)</th><th>閉合差 3D (m)</th>
+          </tr></thead><tbody>`;
+        closures.forEach(c=>{
+          const cls3D=c.closure3D<QUALITY_GOOD_LIMIT?'rms-good':c.closure3D<QUALITY_BAD_LIMIT?'rms-warn':'rms-bad';
+          body+=`<tr>
+            <td style="font-family:sans-serif;font-weight:600">${escHtml(c.fromName)} → ${escHtml(c.toName)}</td>
+            <td style="font-family:sans-serif">${escHtml(c.relayNames.join('、')||'—')}</td>
+            <td style="font-family:sans-serif">${escHtml(c.commonPts.join('、'))}</td>
+            <td>${c.dE.toFixed(6)}</td>
+            <td>${c.dN.toFixed(6)}</td>
+            <td>${c.dH.toFixed(6)}</td>
+            <td><span class="${cls3D}">${c.closure3D.toFixed(6)}</span></td>
+          </tr>`;
+        });
+        body+='</tbody></table></div>';
+      }
+    }
+  }
+
+  area.innerHTML=`<div class="card">
+    <div class="result-tabs">
+      <button class="result-tab ${active==='calc'?'active':''}" onclick="setPriorityTab('calc')">計算過程</button>
+      <button class="result-tab ${active==='closure'?'active':''}" onclick="setPriorityTab('closure')">閉合差平差</button>
+    </div>
+    <div class="info-box">精度門檻：良好 &lt; ${(QUALITY_GOOD_LIMIT*100).toFixed(1)}cm，注意 ${(QUALITY_GOOD_LIMIT*100).toFixed(1)}-${(QUALITY_BAD_LIMIT*100).toFixed(1)}cm，需檢核 ≥ ${(QUALITY_BAD_LIMIT*100).toFixed(1)}cm。小範圍地形測量模式：平面縮放固定 1.000000，只計算平移與旋轉</div>
+    ${body}
+  </div>`;
+}
+
+function render(){ renderChain(); renderPanels(); }
+
+function updateRunButtonState(){
+  const btn=document.getElementById('run-button');
+  if(!btn) return;
+  const data=window._lastReportData;
+  if(!data||!Array.isArray(data.results)){
+    btn.textContent='▶ 執行全站計算';
+    return;
+  }
+  const statuses=stations.map((_,si)=>stationStatus(si,data));
+  const bad=statuses.filter(s=>s.level==='bad').length;
+  const warn=statuses.filter(s=>s.level==='warn').length;
+  const done=data.results.filter(Boolean).length;
+  if(bad) btn.textContent=`需檢核 ${bad} 站 · 重新計算`;
+  else if(warn) btn.textContent=`注意 ${warn} 站 · 重新計算`;
+  else btn.textContent=`已完成 ${done}/${stations.length} 站 · 重新計算`;
+}
 function renderChain(){
   const el=document.getElementById('chain-area');
   if(!stations.length){ el.innerHTML='<span style="color:var(--text3);font-size:12px">尚未建立測站</span>'; return; }
   el.innerHTML=stations.map((s,i)=>{
-    const bg=s.hasGPS?'#e8f5e0':'#fdf0d8',tc=s.hasGPS?'#1b4510':'#5c3a05',border=s.hasGPS?'#2d6b1a':'#c07a10';
-    return `<span class="chain-node" style="background:${bg};color:${tc};border-color:${border}">${s.name}<span style="font-size:10px;margin-left:5px;opacity:.7">${s.hasGPS?'GPS':'傳遞'}</span></span>`
+    const status=stationStatus(i);
+    return `<button type="button" class="chain-node status-${status.level}${i===activeIdx?' active':''}" onclick="setActive(${i})" title="${escHtml(status.detail)}"><span class="chain-status-dot"></span>${escHtml(s.name)}<span style="font-size:10px;opacity:.72">${s.hasGPS?'GPS':'傳遞'}</span><span style="font-size:10px;opacity:.85">${status.label}</span></button>`
       +(i<stations.length-1?'<span class="chain-arrow">⇄</span>':'');
   }).join('');
-}
-function renderTabs(){
-  document.getElementById('station-tabs').innerHTML=stations.map((s,i)=>
-    `<div class="stab${i===activeIdx?' active':''} ${s.hasGPS?'has-gps':'no-gps'}" onclick="setActive(${i})">${s.name}</div>`
-  ).join('');
+  updateRunButtonState();
 }
 function renderPanels(){
   document.getElementById('station-panels').innerHTML=stations.map((s,si)=>{
@@ -291,13 +573,13 @@ function renderPanels(){
       <div class="sec-title" style="margin-bottom:6px">GPS 絕對座標 <span class="badge b-green">點名,E,N,H,屬性</span></div>
       <div class="warn-box">點名需與全測站資料完全一致，系統依點名自動配對</div>
       <textarea id="gp_${s.id}" placeholder="直接貼上，格式：點名,E,N,H,屬性（屬性可省略）&#10;例：A1,246523.450,2665134.220,52.180,控制點" oninput="onGP(${si})">${s.gpsPasteText}</textarea>
-      <div class="parse-preview" id="gpv_${s.id}">${gpPreview(s.gpsPasteText)}</div>`:
+      <div class="parse-preview" id="gpv_${s.id}">${gpPreview(s.gpsPasteText,si)}</div>`:
       `<hr class="divider">
       <div class="sec-title" style="margin-bottom:6px">共同點偵測 <span class="badge b-amber">自動比對點名</span> <span class="badge b-purple">支援雙向傳遞</span></div>
       <div class="info-box">系統自動將本站與任意其他站中點名相同的點視為共同點，無論前站或後站皆可，不需手動設定</div>`;
     return `<div class="card station-card">
       <div class="station-toolbar">
-        <input type="text" id="sname_${s.id}" value="${s.name}" style="font-size:14px;font-weight:600;width:130px">
+        <input type="text" id="sname_${s.id}" value="${s.name}" style="font-size:14px;font-weight:600;width:130px" oninput="onStationName(${si})">
         <span style="font-size:12px;color:var(--text2)">此站類型：</span>
         <div class="toggle">
           <button class="${s.hasGPS?'ay':''}" onclick="toggleGPS(${si},true)">有 GPS</button>
@@ -322,16 +604,18 @@ function renderPanels(){
 
 function helmert(ctrl){
   const n=ctrl.length; if(n<2) return null;
-  let sXX=0,sYY=0,sX=0,sY=0,sXE=0,sXN=0,sYE=0,sYN=0,sE=0,sN=0,sZ=0,sH=0;
+  let sX=0,sY=0,sXE=0,sXN=0,sYE=0,sYN=0,sE=0,sN=0,sZ=0,sH=0;
   for(const p of ctrl){
-    sXX+=p.lx*p.lx; sYY+=p.ly*p.ly; sX+=p.lx; sY+=p.ly;
+    sX+=p.lx; sY+=p.ly;
     sXE+=p.lx*p.gE; sXN+=p.lx*p.gN; sYE+=p.ly*p.gE; sYN+=p.ly*p.gN;
     sE+=p.gE; sN+=p.gN; sZ+=p.lz; sH+=p.gH;
   }
-  const S=sXX+sYY,D=S-(sX*sX+sY*sY)/n;
-  if(Math.abs(D)<1e-15) return null;
-  const a=(sXE+sYN-(sX*sE+sY*sN)/n)/D;
-  const b=(sXN-sYE-(sX*sN-sY*sE)/n)/D;
+  const rotA=sXE+sYN-(sX*sE+sY*sN)/n;
+  const rotB=sXN-sYE-(sX*sN-sY*sE)/n;
+  const rotNorm=Math.sqrt(rotA*rotA+rotB*rotB);
+  if(Math.abs(rotNorm)<1e-15) return null;
+  const a=rotA/rotNorm;
+  const b=rotB/rotNorm;
   const tx=(sE-a*sX+b*sY)/n,ty=(sN-b*sX-a*sY)/n;
   // 高程：kz 固定為 1，只計算平移 dz = mean(gH - lz)
   const kz=1, dz=(sH-sZ)/n;
@@ -353,15 +637,12 @@ function helmert(ctrl){
     sd3d2+=(r.dE-mE)**2+(r.dN-mN)**2+(r.dH-mH)**2;
   }
   const dof=n>1?n-1:1; // 自由度
-  const scale=Math.sqrt(a*a+b*b);
-  const scaleWarn = scale<0.995||scale>1.005;
-  const scaleErr  = scale<0.950||scale>1.050;
+  const scale=1;
   return {a,b,tx,ty,kz,dz,scale,rot:Math.atan2(b,a)*180/Math.PI,n,
     rmsE:Math.sqrt(sE2/n),  rmsN:Math.sqrt(sN2/n),  rmsH:Math.sqrt(sH2/n),
     rms2D:Math.sqrt((sE2+sN2)/n), rms3D:Math.sqrt(s3d/n),
     sdE:Math.sqrt(sdE2/dof), sdN:Math.sqrt(sdN2/dof), sdH:Math.sqrt(sdH2/dof),
-    sd2D:Math.sqrt((sdE2+sdN2)/dof), sd3D:Math.sqrt(sd3d2/dof),
-    scaleWarn,scaleErr};
+    sd2D:Math.sqrt((sdE2+sdN2)/dof), sd3D:Math.sqrt(sd3d2/dof)};
 }
 
 function tryCalcStation(s, lib){
@@ -398,8 +679,8 @@ function tryCalcStation(s, lib){
 function rmsTag(v){
   if(!v&&v!==0) return '<span class="badge b-gray">—</span>';
   const s=v.toFixed(6);
-  if(v<0.01) return `<span class="rms-good">${s}</span>`;
-  if(v<0.05) return `<span class="rms-warn">${s}</span>`;
+  if(v<QUALITY_GOOD_LIMIT) return `<span class="rms-good">${s}</span>`;
+  if(v<QUALITY_BAD_LIMIT) return `<span class="rms-warn">${s}</span>`;
   return `<span class="rms-bad">${s}</span>`;
 }
 
@@ -545,10 +826,7 @@ function runAll(){
         results[si]=res;
         res.pts.forEach(p=>{ lib[p.name]={E:p.E,N:p.N,H:p.H}; });
         changed=true;
-        const scaleNote=res.hp.scaleErr
-          ?` ⚠ 縮放異常 ${res.hp.scale.toFixed(5)}`
-          :res.hp.scaleWarn?` ⚠ 縮放偏離 ${res.hp.scale.toFixed(5)}`:'';
-        roundLog.push(`<span class="ok">✓ ${s.name}（控制點 ${res.hp.n} 個，RMS 3D=${res.hp.rms3D.toFixed(4)}m  SD 3D=${res.hp.sd3D.toFixed(4)}m${scaleNote}）</span>`);
+        roundLog.push(`<span class="ok">✓ ${s.name}（控制點 ${res.hp.n} 個，RMS 3D=${res.hp.rms3D.toFixed(4)}m  SD 3D=${res.hp.sd3D.toFixed(4)}m）</span>`);
       } else {
         roundLog.push(`<span class="skip">… ${s.name}（控制點不足，待下一輪）</span>`);
       }
@@ -564,55 +842,10 @@ function runAll(){
   renderResults(results, iterLog, failedStns, adjLog, closures);
 }
 
-function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
+function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], generatedAt=null){
+  const resultGeneratedAt=generatedAt ? new Date(generatedAt) : new Date();
+  const safeGeneratedAt=Number.isNaN(resultGeneratedAt.getTime()) ? new Date() : resultGeneratedAt;
   let perTsv='', mergedTsv='', html='';
-
-  // 迭代紀錄
-  html+=`<div class="card">
-    <div class="sec-title">計算過程（迭代紀錄）
-      <span class="badge b-purple">${iterLog.length} 輪</span>
-      <span class="badge b-green">已完成 ${results.filter(r=>r!==null).length} 站</span>
-      ${failedStns.length?`<span class="badge b-red">失敗 ${failedStns.length} 站</span>`:''}
-    </div>
-    <div class="iter-log">`;
-  iterLog.forEach(({round,items})=>{
-    html+=`<div><span class="round">第 ${round} 輪：</span> ${items.join(' &nbsp;|&nbsp; ')}</div>`;
-  });
-  if(failedStns.length){
-    html+=`<div class="err" style="margin-top:4px">✕ 無法計算（控制點始終不足）：${failedStns.join('、')}</div>`;
-  }
-  html+='</div></div>';
-
-  // 閉合差平差紀錄
-  if(adjLog.length){
-    html+=`<div class="card">
-      <div class="sec-title">閉合差平差
-        <span class="badge b-purple">${closures.length} 個傳遞段</span>
-      </div>
-      <div class="info-box">偵測到首末兩端皆有 GPS 控制點的傳遞段，已自動計算閉合差並按比例分配給中間傳遞站</div>
-      <div class="iter-log">`;
-    adjLog.forEach(line=>{ html+=`<div>${line}</div>`; });
-    html+='</div>';
-    // 閉合差彙整表
-    html+=`<div class="tbl-wrap" style="margin-top:12px"><table>
-      <thead><tr>
-        <th>傳遞段</th><th>中間傳遞站</th><th>共同點</th>
-        <th>閉合差 E (m)</th><th>閉合差 N (m)</th><th>閉合差 H (m)</th><th>閉合差 3D (m)</th>
-      </tr></thead><tbody>`;
-    closures.forEach(c=>{
-      const cls3D=c.closure3D<0.01?'rms-good':c.closure3D<0.05?'rms-warn':'rms-bad';
-      html+=`<tr>
-        <td style="font-family:sans-serif;font-weight:600">${c.fromName} → ${c.toName}</td>
-        <td style="font-family:sans-serif">${c.relayNames.join('、')}</td>
-        <td style="font-family:sans-serif">${c.commonPts.join('、')}</td>
-        <td>${c.dE.toFixed(6)}</td>
-        <td>${c.dN.toFixed(6)}</td>
-        <td>${c.dH.toFixed(6)}</td>
-        <td><span class="${cls3D}">${c.closure3D.toFixed(6)}</span></td>
-      </tr>`;
-    });
-    html+='</tbody></table></div></div>';
-  }
 
   // 各站結果
   html+='<div class="card"><div class="sec-title" style="font-size:15px">各站計算結果</div>';
@@ -623,15 +856,9 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
       return;
     }
     const hp=r.hp;
-    const scaleBadge=hp.scaleErr
-      ? `<span class="badge" style="background:#fdeaea;color:#8a2020">⚠ 縮放異常 ${hp.scale.toFixed(6)}</span>`
-      : hp.scaleWarn
-        ? `<span class="badge" style="background:#fdf0d8;color:#5c3a05">⚠ 縮放偏離 ${hp.scale.toFixed(6)}</span>`
-        : `<span class="badge b-gray">縮放 ${hp.scale.toFixed(8)}</span>`;
     html+=`<div class="result-stn-header">
       <span style="font-size:14px;font-weight:600;color:var(--blue)">${s.name}</span>
       <span class="badge b-gray">控制點 ${hp.n}</span>
-      ${scaleBadge}
       <span class="badge b-gray">旋轉 ${hp.rot.toFixed(4)}°</span>
     </div>
     <div class="metric-strip">
@@ -741,10 +968,16 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[]){
     </div>
   </div>`;
 
-  document.getElementById('result-area').innerHTML=html;
   window._perTsv=perTsv; window._mergedTsv=mergedTsv;
   window._mpts=mpts; window._currentZone=121;
-  window._lastReportData={results, failedStns, closures, mpts, generatedAt:new Date()};
+  window._lastIterLog=iterLog;
+  window._lastAdjLog=adjLog;
+  window._lastFailedStns=failedStns;
+  window._lastReportData={results, failedStns, closures, mpts, generatedAt:safeGeneratedAt};
+  renderChain();
+  renderPriorityResults();
+
+  document.getElementById('result-area').innerHTML=html;
   setTimeout(()=>renderMap(mpts,121), 80);
 }
 
@@ -777,6 +1010,122 @@ function downloadTextFile(filename, content, type){
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function projectTimestamp(date=new Date()){
+  const pad=n=>String(n).padStart(2,'0');
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
+}
+function clearResultState(){
+  if(_leafletMap){ _leafletMap.remove(); _leafletMap=null; }
+  window._perTsv='';
+  window._mergedTsv='';
+  window._mpts=null;
+  window._mapBounds=null;
+  window._lastReportData=null;
+  window._lastIterLog=[];
+  window._lastAdjLog=[];
+  window._lastFailedStns=[];
+  const resultArea=document.getElementById('result-area');
+  if(resultArea) resultArea.innerHTML='';
+  updateRunButtonState();
+  renderPriorityResults(null);
+}
+function cloneProjectValue(value){
+  return JSON.parse(JSON.stringify(value));
+}
+function buildProjectPayload(){
+  saveAll();
+  const report=window._lastReportData||{};
+  return {
+    schemaVersion:PROJECT_SCHEMA_VERSION,
+    savedAt:new Date().toISOString(),
+    stations:cloneProjectValue(stations),
+    activeIdx,
+    generatedAt:report.generatedAt ? new Date(report.generatedAt).toISOString() : null,
+    results:report.results ? cloneProjectValue(report.results) : null,
+    failedStns:report.failedStns ? cloneProjectValue(report.failedStns) : [],
+    closures:report.closures ? cloneProjectValue(report.closures) : [],
+    mpts:window._mpts ? cloneProjectValue(window._mpts) : [],
+    iterLog:window._lastIterLog ? cloneProjectValue(window._lastIterLog) : [],
+    adjLog:window._lastAdjLog ? cloneProjectValue(window._lastAdjLog) : [],
+    perTsv:window._perTsv||'',
+    mergedTsv:window._mergedTsv||'',
+    currentZone:window._currentZone||121
+  };
+}
+function saveProjectJson(){
+  try{
+    const payload=buildProjectPayload();
+    const json=JSON.stringify(payload,null,2);
+    downloadTextFile(`TraverseLink_project_${projectTimestamp()}.json`,json,'application/json;charset=utf-8');
+  }catch(err){
+    alert('儲存專案失敗：'+(err&&err.message?err.message:err));
+  }
+}
+function openProjectFile(){
+  const input=document.getElementById('project-file-input');
+  if(input) input.click();
+}
+function normalizeImportedStation(s,i){
+  return {
+    id:String(s.id||uid()),
+    name:String(s.name||`測站${i+1}`),
+    hasGPS:s.hasGPS!==false,
+    localPasteText:String(s.localPasteText||''),
+    gpsPasteText:String(s.gpsPasteText||'')
+  };
+}
+function validateProjectPayload(project){
+  if(!project||typeof project!=='object') throw new Error('檔案內容不是有效的專案資料');
+  if(project.schemaVersion!==PROJECT_SCHEMA_VERSION) throw new Error('專案格式版本不支援');
+  if(!Array.isArray(project.stations)) throw new Error('專案缺少測站資料');
+  if(project.stations.length<1) throw new Error('專案至少需要一個測站');
+}
+function restoreProjectPayload(project){
+  validateProjectPayload(project);
+  const nextStations=project.stations.map(normalizeImportedStation);
+  const nextActiveIdx=Number.isInteger(project.activeIdx)
+    ? Math.max(0,Math.min(project.activeIdx,nextStations.length-1))
+    : 0;
+
+  clearResultState();
+  stations=nextStations;
+  activeIdx=nextActiveIdx;
+  render();
+
+  if(Array.isArray(project.results)){
+    const failedStns=Array.isArray(project.failedStns)?project.failedStns:[];
+    const iterLog=Array.isArray(project.iterLog)?project.iterLog:[];
+    const adjLog=Array.isArray(project.adjLog)?project.adjLog:[];
+    const closures=Array.isArray(project.closures)?project.closures:[];
+    renderResults(project.results,iterLog,failedStns,adjLog,closures,project.generatedAt);
+    if(project.currentZone===119) setTimeout(()=>setMapZone(119),120);
+  } else {
+    alert('專案已載入。此檔案沒有保存計算結果，請重新執行全站計算。');
+  }
+}
+function loadProjectJson(event){
+  const input=event&&event.target;
+  const file=input&&input.files&&input.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const project=JSON.parse(reader.result);
+      restoreProjectPayload(project);
+      if(Array.isArray(project.results)) alert('專案與計算結果已載入完成。');
+    }catch(err){
+      alert('載入專案失敗：'+(err&&err.message?err.message:err));
+    }finally{
+      if(input) input.value='';
+    }
+  };
+  reader.onerror=()=>{
+    alert('讀取檔案失敗，請確認檔案是否可開啟。');
+    if(input) input.value='';
+  };
+  reader.readAsText(file,'utf-8');
 }
 function downloadMergedCsv(){
   const mpts=window._mpts;
@@ -814,8 +1163,8 @@ function stationTypeLabel(s){
 }
 function qualityLabel(v){
   if(!Number.isFinite(v)) return '未計算';
-  if(v<0.01) return '良好';
-  if(v<0.05) return '注意';
+  if(v<QUALITY_GOOD_LIMIT) return '良好';
+  if(v<QUALITY_BAD_LIMIT) return '注意';
   return '需檢核';
 }
 function buildReportHtml(data){
@@ -835,7 +1184,7 @@ function buildReportHtml(data){
       <td>${escHtml(r.sharedNames.join('、'))}</td>
       <td>${fmtNum(hp.rmsE)}</td><td>${fmtNum(hp.rmsN)}</td><td>${fmtNum(hp.rmsH)}</td><td>${fmtNum(hp.rms3D)}</td>
       <td>${fmtNum(hp.sdE)}</td><td>${fmtNum(hp.sdN)}</td><td>${fmtNum(hp.sdH)}</td><td>${fmtNum(hp.sd3D)}</td>
-      <td>${fmtNum(hp.scale,8)}</td><td>${fmtNum(hp.rot,4)}</td>
+      <td>${fmtNum(hp.rot,4)}</td>
       <td>${r.adjApplied?`E ${fmtNum(r.adjApplied.corrE,4)} / N ${fmtNum(r.adjApplied.corrN,4)} / H ${fmtNum(r.adjApplied.corrH,4)}`:'—'}</td>
       <td class="${cls}">${q}</td>
     </tr>`;
@@ -847,7 +1196,7 @@ function buildReportHtml(data){
       <td>${escHtml(c.relayNames.join('、')||'—')}</td>
       <td>${escHtml(c.commonPts.join('、'))}</td>
       <td>${fmtNum(c.dE)}</td><td>${fmtNum(c.dN)}</td><td>${fmtNum(c.dH)}</td><td>${fmtNum(c.closure3D)}</td>
-      <td class="${c.closure3D<0.01?'good':c.closure3D<0.05?'warn':'bad'}">${qualityLabel(c.closure3D)}</td>
+      <td class="${c.closure3D<QUALITY_GOOD_LIMIT?'good':c.closure3D<QUALITY_BAD_LIMIT?'warn':'bad'}">${qualityLabel(c.closure3D)}</td>
     </tr>`).join('') : '<tr><td colspan="8">無雙端 GPS 閉合段或無閉合差資料</td></tr>';
 
   const pointRows=(data.mpts||[]).map(([name,p])=>{
@@ -866,11 +1215,10 @@ function buildReportHtml(data){
     if(!r) return;
     const s=stations[si], hp=r.hp;
     if(hp.n<3) suggestions.push(`${s.name} 控制點數為 ${hp.n}，可增加第 3 點以上以提高檢核能力。`);
-    if(hp.rms3D>=0.05 || hp.sd3D>=0.05) suggestions.push(`${s.name} 的 RMS/SD 3D 偏高，建議檢查控制點坐標、點名、稜鏡高與觀測紀錄。`);
-    if(hp.scaleWarn) suggestions.push(`${s.name} 比例尺 ${hp.scale.toFixed(6)} 超出常用檢核範圍，建議確認儀器設定與單位。`);
+    if(hp.rms3D>=QUALITY_BAD_LIMIT || hp.sd3D>=QUALITY_BAD_LIMIT) suggestions.push(`${s.name} 的 RMS/SD 3D 偏高，建議檢查控制點坐標、點名、稜鏡高與觀測紀錄。`);
   });
   (data.closures||[]).forEach(c=>{
-    if(c.closure3D>=0.05) suggestions.push(`${c.fromName} → ${c.toName} 閉合差 3D=${c.closure3D.toFixed(4)}m，建議優先複核中間傳遞站與共同點。`);
+    if(c.closure3D>=QUALITY_BAD_LIMIT) suggestions.push(`${c.fromName} → ${c.toName} 閉合差 3D=${c.closure3D.toFixed(4)}m，建議優先複核中間傳遞站與共同點。`);
   });
   if(!suggestions.length) suggestions.push('目前各站計算指標未見明顯異常；留存時建議一併保存原始全站資料、GPS 控制點資料、儀器名稱、作業日期與坐標系統。');
 
@@ -894,7 +1242,7 @@ function buildReportHtml(data){
     <th>站名</th><th>站別</th><th>控制點數</th><th>控制/共同點</th>
     <th>RMS E</th><th>RMS N</th><th>RMS H</th><th>RMS 3D</th>
     <th>SD E</th><th>SD N</th><th>SD H</th><th>SD 3D</th>
-    <th>比例尺</th><th>旋轉角</th><th>閉合修正</th><th>檢核</th>
+    <th>旋轉角</th><th>閉合修正</th><th>檢核</th>
   </tr></thead><tbody>${stationRows}</tbody></table>
 
   <h2>閉合差摘要</h2>
@@ -918,9 +1266,8 @@ function downloadReport(){
 
 function clearAll(){
   if(!confirm('確定清除所有資料？')) return;
-  if(_leafletMap){ _leafletMap.remove(); _leafletMap=null; }
+  clearResultState();
   stations=[]; activeIdx=0;
-  document.getElementById('result-area').innerHTML='';
   addStation('測站1',true);
 }
 
@@ -1033,6 +1380,7 @@ function fitMapBounds(){
 }
 
 function setMapZone(lon0){
+  window._currentZone=lon0;
   const b121=document.getElementById('zone121');
   const b119=document.getElementById('zone119');
   if(b121) b121.className=lon0===121?'ay':'';
@@ -1042,7 +1390,7 @@ function setMapZone(lon0){
 
 function loadExample(){
   stations=[]; activeIdx=0;
-  document.getElementById('result-area').innerHTML='';
+  clearResultState();
 
   // 測站1：傳遞站（前端無GPS，由測站2向前傳遞）
   // 與測站2共享 P1、P2

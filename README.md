@@ -15,18 +15,19 @@ Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL
 ## Key Features
 
 ### Coordinate Transformation
-- **Helmert 4-parameter transformation** for the horizontal plane (translation, rotation, scale)
-- **Linear regression** for vertical (Z/H) coordinate transfer
-- **Scale validation** with color-coded warnings:
-  - Normal: 0.9990 – 1.0010
-  - Warning ⚠ (amber): 0.9950 – 0.9990 or 1.0010 – 1.0050
-  - Alert ⚠ (red): outside 0.9500 – 1.0500
+- **Small-area terrain survey mode** for the horizontal plane: translation + rotation, with scale fixed at `1.000000`
+- **Height transfer by translation**: `H = Z + dz` (`kz = 1`)
+- **Quality status** based on RMS/SD 3D and closure 3D:
+  - Good: < 0.020 m
+  - Attention: 0.020 – < 0.050 m
+  - Needs review: ≥ 0.050 m
 
 ### Multi-Station Traverse
 - **Unlimited stations** — add or remove stations dynamically
 - **Mixed GPS/relay mode** — any station can be a GPS anchor or relay station
 - **Bidirectional propagation** — iterative solving allows shared points to come from preceding or following stations in any order
 - **Flexible GPS placement** — GPS control points can be at the start, middle, end, or any combination of positions in the traverse chain
+- **Clickable traverse chain** — select stations directly from the chain and see per-station status at a glance
 
 ### Closure Adjustment
 - **Automatic segment detection** — identifies traverse segments bounded by GPS stations on both ends
@@ -38,16 +39,20 @@ Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL
 - **Paste-in format** — directly paste data in `PointName,X,Y,Z,Attribute` format (comma or tab separated)
 - **Auto shared-point detection** — points with identical names across stations are automatically treated as control points; no manual mapping required
 - **GPS pairing by name** — GPS absolute coordinates are matched to total station points by name automatically
+- **Inline input diagnostics** — warns about missing fields, invalid numbers, duplicate point names, insufficient control/shared points, and GPS-only points
 
 ### Results
-- **Per-station results** — individual Helmert parameters, RMS, shared points, and adjustment corrections
+- **Priority result tabs** — calculation process and closure adjustment are shown immediately below the title
+- **Health summary** — station status counts for Good, Attention, Needs review / incomplete, and closure segments
+- **Per-station results** — rotation, RMS/SD, shared points, and adjustment corrections
 - **Merged result table** — all unique points from all stations in a single deduplicated table with source station column
 - **Point source type** — merged outputs distinguish `GPS-only`, `GPS+EDM`, and `EDM`
 - **RMS color coding**:
-  - Green: < 0.01 m (excellent)
-  - Yellow: 0.01 – 0.05 m (acceptable)
-  - Red: ≥ 0.05 m (needs review)
-- **One-click TSV export** — copy results directly into Excel
+  - Green: < 0.020 m (good)
+  - Yellow: 0.020 – < 0.050 m (attention)
+  - Red: ≥ 0.050 m (needs review)
+- **Project save/load** — save project JSON, load existing project JSON, load sample data, or clear all from the traverse chain control area
+- **One-click exports** — copy TSV directly into Excel, download merged CSV, or download an HTML report
 
 ---
 
@@ -77,18 +82,19 @@ P2,246501.745,2665128.661,52.820
 
 ```
 1. Open index.html in browser
-2. Click [+ 新增測站] to add stations (or load sample data)
+2. Use the 座標傳遞鏈 control area to add stations, load/save projects, load sample data, or clear all
 3. For each station:
    ├── Set type: [有 GPS] GPS station  or  [傳遞站] Relay station
    ├── Paste total station data (PointName,X,Y,Z,Attribute)
    └── GPS station only: paste GPS coordinates (PointName,E,N,H)
 4. Click [▶ 執行全站計算]
 5. Review results:
-   ├── Iteration log — stations solved per round
+   ├── Health summary — Good / Attention / Needs review status
+   ├── Calculation process — stations solved per round
    ├── Closure adjustment — segment errors and corrections applied
-   ├── Per-station results — Helmert params, RMS, adjustment column
+   ├── Per-station results — rotation, RMS/SD, adjustment column
    └── Merged result table — all unique points across all stations
-6. Copy TSV to clipboard → paste into Excel
+6. Copy TSV, download CSV, or download the HTML report
 ```
 
 ---
@@ -127,21 +133,36 @@ Single-anchor segments (relay stations before the first GPS station or after the
 
 ## Coordinate Transformation
 
-**Horizontal — Helmert 4-parameter (least squares):**
+**Horizontal — small-area rigid transformation (scale fixed at 1):**
 
 ```
-E = a·X − b·Y + tx
-N = b·X + a·Y + ty
+E = cosθ·X − sinθ·Y + tx
+N = sinθ·X + cosθ·Y + ty
 
-Scale    = √(a² + b²)
-Rotation = atan2(b, a)
+Scale    = 1.000000
+Rotation = θ
 ```
 
-**Vertical — linear regression:**
+This mode is intended for small-area terrain surveys, typically within about 500 m, where the total station and absolute coordinate systems are both in meters and the local measurement scale should be preserved. Fixing scale helps expose control-point, point-name, height, or observation issues instead of absorbing them into a free scale factor.
+
+**Vertical — height translation:**
 
 ```
-H = kz·Z + dz
+H = Z + dz
+kz = 1
 ```
+
+## Quality Thresholds
+
+The health status shown in the top result tabs, traverse chain, station summary, closure table, and report uses these defaults:
+
+| Status | Threshold |
+|--------|-----------|
+| Good | RMS/SD 3D or closure 3D < 0.020 m |
+| Attention | 0.020 m to < 0.050 m |
+| Needs review | ≥ 0.050 m |
+
+These thresholds are tuned for general small-area terrain survey checks. For stricter engineering layout or structural survey work, use tighter acceptance criteria outside this tool.
 
 ---
 
