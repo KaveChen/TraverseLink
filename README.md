@@ -15,7 +15,8 @@ Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL
 ## Key Features
 
 ### Coordinate Transformation
-- **Small-area terrain survey mode** for the horizontal plane: translation + rotation, with scale fixed at `1.000000`
+- **Default small-area terrain survey mode** for the horizontal plane: translation + rotation, with scale fixed at `1.000000`
+- **Optional scale mode** for tunnel or long-distance traverse work: enable scale when the traverse distance is around 1–2 km and the free scale factor better represents field conditions
 - **Height transfer by translation**: `H = Z + dz` (`kz = 1`)
 - **Quality status** based on RMS/SD 3D and closure 3D:
   - Good: < 0.020 m
@@ -28,6 +29,7 @@ Deploy `index.html` to any static host (GitHub Pages, Netlify) and share the URL
 - **Bidirectional propagation** — iterative solving allows shared points to come from preceding or following stations in any order
 - **Flexible GPS placement** — GPS control points can be at the start, middle, end, or any combination of positions in the traverse chain
 - **Clickable traverse chain** — select stations directly from the chain and see per-station status at a glance
+- **Scale mode switch** — keep `K=1` for general terrain survey, or enable scale for tunnel / long-distance traverse projects
 
 ### Closure Adjustment
 - **Automatic segment detection** — identifies traverse segments bounded by GPS stations on both ends
@@ -82,7 +84,7 @@ P2,246501.745,2665128.661,52.820
 
 ```
 1. Open index.html in browser
-2. Use the 座標傳遞鏈 control area to add stations, load/save projects, load sample data, or clear all
+2. Use the 座標傳遞鏈 control area to add stations, choose scale mode, load/save projects, load sample data, or clear all
 3. For each station:
    ├── Set type: [有 GPS] GPS station  or  [傳遞站] Relay station
    ├── Paste total station data (PointName,X,Y,Z,Attribute)
@@ -133,17 +135,29 @@ Single-anchor segments (relay stations before the first GPS station or after the
 
 ## Coordinate Transformation
 
-**Horizontal — small-area rigid transformation (scale fixed at 1):**
+**Horizontal — default small-area rigid transformation (`K=1`):**
 
 ```
 E = cosθ·X − sinθ·Y + tx
 N = sinθ·X + cosθ·Y + ty
 
-Scale    = 1.000000
+K        = 1.000000
 Rotation = θ
 ```
 
-This mode is intended for small-area terrain surveys, typically within about 500 m, where the total station and absolute coordinate systems are both in meters and the local measurement scale should be preserved. Fixing scale helps expose control-point, point-name, height, or observation issues instead of absorbing them into a free scale factor.
+This mode is intended for general small-area terrain surveys, typically within about 500 m, where the total station and absolute coordinate systems are both in meters and the local measurement scale should be preserved. Fixing scale helps expose control-point, point-name, height, or observation issues instead of absorbing them into a free scale factor.
+
+**Horizontal — optional scaled transformation (`開啟縮放`):**
+
+```
+E = a·X − b·Y + tx
+N = b·X + a·Y + ty
+
+K        = √(a² + b²)
+Rotation = atan2(b, a)
+```
+
+Use this mode for tunnel work or long-distance traverse transfer, such as 1–2 km environments, when allowing a scale factor better fits the measurement geometry. For normal terrain survey work, keep the default `K=1` mode.
 
 **Vertical — height translation:**
 

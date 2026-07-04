@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>多站連測座標轉換工具 v3.0</title>
+<title>多站連測座標轉換工具 v4.0</title>
 <style>
   :root{
     --bg:#ffffff; --bg2:#f6f7f9; --bg3:#eef1f4;
@@ -100,6 +100,9 @@
   button.danger:hover{background:var(--red-bg)}
   .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .action-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:0}
+  .scale-mode-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 8px;padding:8px 10px;background:#fbfcfd;border:1px solid var(--border);border-radius:var(--radius)}
+  .scale-mode-row .scale-mode-label{font-size:12px;font-weight:700;color:var(--text)}
+  .scale-mode-row .scale-mode-hint{font-size:11px;color:var(--text2)}
   textarea{width:100%;min-height:132px;border:1px solid var(--border2);border-radius:var(--radius);padding:11px 12px;font-size:12px;font-family:'Courier New',monospace;background:#fbfcfd;color:var(--text);resize:vertical;line-height:1.7}
   textarea:focus{outline:none;border-color:var(--blue);background:#fff}
   .parse-preview{font-size:11px;color:var(--text2);margin-top:6px;min-height:18px}
@@ -141,6 +144,9 @@
     .station-toolbar .toggle button{flex:1}
     .station-toolbar button.danger{margin-left:0!important;width:100%}
     .action-bar button{flex:1 1 calc(50% - 8px)}
+    .scale-mode-row{align-items:stretch}
+    .scale-mode-row .toggle{width:100%}
+    .scale-mode-row .toggle button{flex:1}
     .summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     table th,table td{padding:7px 8px}
   }
@@ -152,7 +158,7 @@
 <div class="page">
 
 <div class="page-header">
-  <h1>多站連測座標轉換工具 v3.0</h1>
+  <h1>多站連測座標轉換工具 v4.0</h1>
   <p>貼上格式：點名,X,Y,Z,屬性（屬性可留空）· 相同點名自動視為共同點 · 雙向傳遞 · 閉合差平差 · 高程採平移法（kz=1）· RMS + SD 雙指標</p>
 </div>
 
@@ -170,6 +176,14 @@
       <button class="danger" onclick="clearAll()">清除全部</button>
     </div>
   </div>
+  <div class="scale-mode-row">
+    <span class="scale-mode-label">縮放模式</span>
+    <div class="toggle">
+      <button id="scale-fixed-btn" onclick="setScaleMode('fixed')">K=1</button>
+      <button id="scale-free-btn" onclick="setScaleMode('free')">開啟縮放</button>
+    </div>
+    <span class="scale-mode-hint" id="scale-mode-hint"></span>
+  </div>
   <div class="chain-vis" id="chain-area"></div>
   <input type="file" id="project-file-input" accept="application/json,.json" style="display:none" onchange="loadProjectJson(event)">
 </div>
@@ -180,7 +194,7 @@
 </div>
 
 <script>
-let stations=[], activeIdx=0, activePriorityTab='calc';
+let stations=[], activeIdx=0, activePriorityTab='calc', scaleMode='fixed';
 const PROJECT_SCHEMA_VERSION=1;
 const QUALITY_GOOD_LIMIT=0.020;
 const QUALITY_BAD_LIMIT=0.050;
@@ -214,6 +228,27 @@ function collectInputs(si){
 function saveAll(){ stations.forEach((_,si)=>collectInputs(si)); }
 function markInputsChanged(){
   if(window._lastReportData) clearResultState();
+}
+function scaleModeHint(){
+  return scaleMode==='free'
+    ? '洞道或長距離傳遞可開啟；系統會計算 K 值，請一併檢核。'
+    : '一般小範圍地形測量建議維持 K=1；洞道測量可視需要開啟縮放。';
+}
+function renderScaleModeControl(){
+  const fixedBtn=document.getElementById('scale-fixed-btn');
+  const freeBtn=document.getElementById('scale-free-btn');
+  const hint=document.getElementById('scale-mode-hint');
+  if(fixedBtn) fixedBtn.className=scaleMode==='fixed'?'ay':'';
+  if(freeBtn) freeBtn.className=scaleMode==='free'?'an':'';
+  if(hint) hint.textContent=scaleModeHint();
+}
+function setScaleMode(mode){
+  const next=mode==='free'?'free':'fixed';
+  if(scaleMode===next) return;
+  scaleMode=next;
+  markInputsChanged();
+  renderScaleModeControl();
+  renderPriorityResults();
 }
 
 function addStation(name,gpsFlag,localText,gpsText){
@@ -368,6 +403,9 @@ function statusBadge(status){
   const cls=status.level==='good'?'b-green':status.level==='warn'?'b-amber':status.level==='bad'?'b-red':'b-gray';
   return `<span class="badge ${cls}">${status.label}</span>`;
 }
+function scaleTag(hp){
+  return `<span class="badge b-gray">K ${fmtNum(hp&&hp.scale,6)}</span>`;
+}
 function lpPreview(si){
   const s=stations[si];
   const rows=parsePaste(s.localPasteText);
@@ -464,15 +502,18 @@ function renderPriorityResults(data=window._lastReportData){
       <button type="button" class="summary-tile bad" onclick="focusFirstStatus('bad')"><b>${bad}</b><span>需檢核 / 未完成</span></button>
       <button type="button" class="summary-tile neutral" onclick="setPriorityTab('closure')"><b>${(data.closures||[]).length}</b><span>閉合傳遞段</span></button>
     </div>`;
+    const scaleHead=scaleMode==='free'?'<th>縮放 K</th>':'';
     body+=`<div class="tbl-wrap"><table>
-      <thead><tr><th>測站</th><th>類型</th><th>狀態</th><th>控制點</th><th>RMS 3D</th><th>SD 3D</th><th>共同點 / 提示</th></tr></thead><tbody>`;
+      <thead><tr><th>測站</th><th>類型</th><th>狀態</th><th>控制點</th><th>RMS 3D</th><th>SD 3D</th>${scaleHead}<th>共同點 / 提示</th></tr></thead><tbody>`;
     stations.forEach((s,si)=>{
       const r=results[si];
       const status=statuses[si];
       if(!r){
-        body+=`<tr><td style="font-family:sans-serif;font-weight:600">${escHtml(s.name)}</td><td style="font-family:sans-serif">${stationTypeLabel(s)}</td><td>${statusBadge(status)}</td><td>—</td><td>—</td><td>—</td><td style="font-family:sans-serif;color:var(--text2)">${escHtml(status.detail)}</td></tr>`;
+        const scaleCell=scaleMode==='free'?'<td>—</td>':'';
+        body+=`<tr><td style="font-family:sans-serif;font-weight:600">${escHtml(s.name)}</td><td style="font-family:sans-serif">${stationTypeLabel(s)}</td><td>${statusBadge(status)}</td><td>—</td><td>—</td><td>—</td>${scaleCell}<td style="font-family:sans-serif;color:var(--text2)">${escHtml(status.detail)}</td></tr>`;
         return;
       }
+      const scaleCell=scaleMode==='free'?`<td>${scaleTag(r.hp)}</td>`:'';
       body+=`<tr>
         <td style="font-family:sans-serif;font-weight:600">${escHtml(s.name)}</td>
         <td style="font-family:sans-serif">${stationTypeLabel(s)}</td>
@@ -480,6 +521,7 @@ function renderPriorityResults(data=window._lastReportData){
         <td>${r.hp.n}</td>
         <td>${rmsTag(r.hp.rms3D)}</td>
         <td>${rmsTag(r.hp.sd3D)}</td>
+        ${scaleCell}
         <td style="font-family:sans-serif">${r.sharedNames.map(escHtml).join('、')}</td>
       </tr>`;
     });
@@ -532,12 +574,12 @@ function renderPriorityResults(data=window._lastReportData){
       <button class="result-tab ${active==='calc'?'active':''}" onclick="setPriorityTab('calc')">計算過程</button>
       <button class="result-tab ${active==='closure'?'active':''}" onclick="setPriorityTab('closure')">閉合差平差</button>
     </div>
-    <div class="info-box">精度門檻：良好 &lt; ${(QUALITY_GOOD_LIMIT*100).toFixed(1)}cm，注意 ${(QUALITY_GOOD_LIMIT*100).toFixed(1)}-${(QUALITY_BAD_LIMIT*100).toFixed(1)}cm，需檢核 ≥ ${(QUALITY_BAD_LIMIT*100).toFixed(1)}cm。小範圍地形測量模式：平面縮放固定 1.000000，只計算平移與旋轉</div>
+    <div class="info-box">精度門檻：良好 &lt; ${(QUALITY_GOOD_LIMIT*100).toFixed(1)}cm，注意 ${(QUALITY_GOOD_LIMIT*100).toFixed(1)}-${(QUALITY_BAD_LIMIT*100).toFixed(1)}cm，需檢核 ≥ ${(QUALITY_BAD_LIMIT*100).toFixed(1)}cm。縮放模式：${scaleMode==='free'?'已開啟 K 值計算，適合洞道或長距離傳遞':'K=1，小範圍地形測量建議使用'}</div>
     ${body}
   </div>`;
 }
 
-function render(){ renderChain(); renderPanels(); }
+function render(){ renderScaleModeControl(); renderChain(); renderPanels(); }
 
 function updateRunButtonState(){
   const btn=document.getElementById('run-button');
@@ -604,18 +646,29 @@ function renderPanels(){
 
 function helmert(ctrl){
   const n=ctrl.length; if(n<2) return null;
-  let sX=0,sY=0,sXE=0,sXN=0,sYE=0,sYN=0,sE=0,sN=0,sZ=0,sH=0;
+  let sXX=0,sYY=0,sX=0,sY=0,sXE=0,sXN=0,sYE=0,sYN=0,sE=0,sN=0,sZ=0,sH=0;
   for(const p of ctrl){
+    sXX+=p.lx*p.lx; sYY+=p.ly*p.ly;
     sX+=p.lx; sY+=p.ly;
     sXE+=p.lx*p.gE; sXN+=p.lx*p.gN; sYE+=p.ly*p.gE; sYN+=p.ly*p.gN;
     sE+=p.gE; sN+=p.gN; sZ+=p.lz; sH+=p.gH;
   }
   const rotA=sXE+sYN-(sX*sE+sY*sN)/n;
   const rotB=sXN-sYE-(sX*sN-sY*sE)/n;
-  const rotNorm=Math.sqrt(rotA*rotA+rotB*rotB);
-  if(Math.abs(rotNorm)<1e-15) return null;
-  const a=rotA/rotNorm;
-  const b=rotB/rotNorm;
+  let a,b,scale;
+  if(scaleMode==='free'){
+    const D=sXX+sYY-(sX*sX+sY*sY)/n;
+    if(Math.abs(D)<1e-15) return null;
+    a=rotA/D;
+    b=rotB/D;
+    scale=Math.sqrt(a*a+b*b);
+  } else {
+    const rotNorm=Math.sqrt(rotA*rotA+rotB*rotB);
+    if(Math.abs(rotNorm)<1e-15) return null;
+    a=rotA/rotNorm;
+    b=rotB/rotNorm;
+    scale=1;
+  }
   const tx=(sE-a*sX+b*sY)/n,ty=(sN-b*sX-a*sY)/n;
   // 高程：kz 固定為 1，只計算平移 dz = mean(gH - lz)
   const kz=1, dz=(sH-sZ)/n;
@@ -637,7 +690,6 @@ function helmert(ctrl){
     sd3d2+=(r.dE-mE)**2+(r.dN-mN)**2+(r.dH-mH)**2;
   }
   const dof=n>1?n-1:1; // 自由度
-  const scale=1;
   return {a,b,tx,ty,kz,dz,scale,rot:Math.atan2(b,a)*180/Math.PI,n,
     rmsE:Math.sqrt(sE2/n),  rmsN:Math.sqrt(sN2/n),  rmsH:Math.sqrt(sH2/n),
     rms2D:Math.sqrt((sE2+sN2)/n), rms3D:Math.sqrt(s3d/n),
@@ -856,9 +908,11 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], gen
       return;
     }
     const hp=r.hp;
+    const scaleBadge=scaleMode==='free'?scaleTag(hp):'';
     html+=`<div class="result-stn-header">
       <span style="font-size:14px;font-weight:600;color:var(--blue)">${s.name}</span>
       <span class="badge b-gray">控制點 ${hp.n}</span>
+      ${scaleBadge}
       <span class="badge b-gray">旋轉 ${hp.rot.toFixed(4)}°</span>
     </div>
     <div class="metric-strip">
@@ -973,7 +1027,7 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], gen
   window._lastIterLog=iterLog;
   window._lastAdjLog=adjLog;
   window._lastFailedStns=failedStns;
-  window._lastReportData={results, failedStns, closures, mpts, generatedAt:safeGeneratedAt};
+  window._lastReportData={results, failedStns, closures, mpts, generatedAt:safeGeneratedAt, scaleMode};
   renderChain();
   renderPriorityResults();
 
@@ -1040,6 +1094,7 @@ function buildProjectPayload(){
   return {
     schemaVersion:PROJECT_SCHEMA_VERSION,
     savedAt:new Date().toISOString(),
+    scaleMode,
     stations:cloneProjectValue(stations),
     activeIdx,
     generatedAt:report.generatedAt ? new Date(report.generatedAt).toISOString() : null,
@@ -1092,6 +1147,7 @@ function restoreProjectPayload(project){
   clearResultState();
   stations=nextStations;
   activeIdx=nextActiveIdx;
+  scaleMode=project.scaleMode==='free'?'free':'fixed';
   render();
 
   if(Array.isArray(project.results)){
@@ -1169,14 +1225,18 @@ function qualityLabel(v){
 }
 function buildReportHtml(data){
   const reportDate=data.generatedAt instanceof Date ? data.generatedAt : new Date(data.generatedAt||Date.now());
+  const reportScaleMode=data.scaleMode==='free'?'free':'fixed';
+  const reportScaleHead=reportScaleMode==='free'?'<th>縮放 K</th>':'';
+  const reportScaleModeLabel=reportScaleMode==='free'?'開啟縮放（洞道/長距離模式）':'K=1（一般小範圍模式）';
   const stationRows=stations.map((s,si)=>{
     const r=data.results[si];
     if(!r){
-      return `<tr class="bad"><td>${escHtml(s.name)}</td><td>${stationTypeLabel(s)}</td><td colspan="15">未完成計算：控制點不足或共同點無法連接</td></tr>`;
+      return `<tr class="bad"><td>${escHtml(s.name)}</td><td>${stationTypeLabel(s)}</td><td colspan="${reportScaleMode==='free'?14:13}">未完成計算：控制點不足或共同點無法連接</td></tr>`;
     }
     const hp=r.hp;
     const q=qualityLabel(hp.rms3D);
     const cls=q==='良好'?'good':q==='注意'?'warn':'bad';
+    const reportScaleCell=reportScaleMode==='free'?`<td>${fmtNum(hp.scale,6)}</td>`:'';
     return `<tr>
       <td>${escHtml(s.name)}</td>
       <td>${stationTypeLabel(s)}</td>
@@ -1184,6 +1244,7 @@ function buildReportHtml(data){
       <td>${escHtml(r.sharedNames.join('、'))}</td>
       <td>${fmtNum(hp.rmsE)}</td><td>${fmtNum(hp.rmsN)}</td><td>${fmtNum(hp.rmsH)}</td><td>${fmtNum(hp.rms3D)}</td>
       <td>${fmtNum(hp.sdE)}</td><td>${fmtNum(hp.sdN)}</td><td>${fmtNum(hp.sdH)}</td><td>${fmtNum(hp.sd3D)}</td>
+      ${reportScaleCell}
       <td>${fmtNum(hp.rot,4)}</td>
       <td>${r.adjApplied?`E ${fmtNum(r.adjApplied.corrE,4)} / N ${fmtNum(r.adjApplied.corrN,4)} / H ${fmtNum(r.adjApplied.corrH,4)}`:'—'}</td>
       <td class="${cls}">${q}</td>
@@ -1235,14 +1296,14 @@ function buildReportHtml(data){
     ul{margin-top:6px}.small{font-size:11px;color:#777}
   </style></head><body>
   <h1>TraverseLink 計算報表</h1>
-  <div class="meta">產生時間：${escHtml(reportDate.toLocaleString('zh-TW'))} ｜ 測站數：${stations.length} ｜ 成功：${data.results.filter(Boolean).length} ｜ 失敗：${failed.length}</div>
+  <div class="meta">產生時間：${escHtml(reportDate.toLocaleString('zh-TW'))} ｜ 測站數：${stations.length} ｜ 成功：${data.results.filter(Boolean).length} ｜ 失敗：${failed.length} ｜ 縮放模式：${reportScaleModeLabel}</div>
 
   <h2>各站摘要</h2>
   <table><thead><tr>
     <th>站名</th><th>站別</th><th>控制點數</th><th>控制/共同點</th>
     <th>RMS E</th><th>RMS N</th><th>RMS H</th><th>RMS 3D</th>
     <th>SD E</th><th>SD N</th><th>SD H</th><th>SD 3D</th>
-    <th>旋轉角</th><th>閉合修正</th><th>檢核</th>
+    ${reportScaleHead}<th>旋轉角</th><th>閉合修正</th><th>檢核</th>
   </tr></thead><tbody>${stationRows}</tbody></table>
 
   <h2>閉合差摘要</h2>
@@ -1267,7 +1328,7 @@ function downloadReport(){
 function clearAll(){
   if(!confirm('確定清除所有資料？')) return;
   clearResultState();
-  stations=[]; activeIdx=0;
+  stations=[]; activeIdx=0; scaleMode='fixed';
   addStation('測站1',true);
 }
 
@@ -1389,7 +1450,7 @@ function setMapZone(lon0){
 }
 
 function loadExample(){
-  stations=[]; activeIdx=0;
+  stations=[]; activeIdx=0; scaleMode='fixed';
   clearResultState();
 
   // 測站1：傳遞站（前端無GPS，由測站2向前傳遞）
