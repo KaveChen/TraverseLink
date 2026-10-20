@@ -1214,6 +1214,55 @@ function runAll(){
   renderResults(results,iterLog,stations.filter((_,i)=>!results[i]).map(s=>s.name),adjLog,closures);
 }
 
+function collectHighResiduals(results,threshold=0.020){
+  const edm=[],gps=new Map();
+  function vector(v){
+    if(!v||![v.dE,v.dN,v.dH].every(Number.isFinite))return null;
+    return {dE:v.dE,dN:v.dN,dH:v.dH,horizontal:Math.hypot(v.dE,v.dN),threeD:Math.hypot(v.dE,v.dN,v.dH)};
+  }
+  (results||[]).forEach((r,i)=>{
+    if(!r)return;
+    const station=stations[i]?.name||String(i+1);
+    r.pts.forEach(p=>{
+      const v=vector(p.residual);
+      if(v&&v.threeD>threshold)edm.push({kind:'EDM',name:p.name,stations:[station],sources:[],...v});
+      (p.gpsResiduals||[]).forEach(g=>{
+        const v=vector(g);if(!v)return;
+        let row=gps.get(p.name);
+        if(!row){row={kind:'GPS',name:p.name,stations:[],sources:[],...v};gps.set(p.name,row);}
+        // One project GPS constraint per name: repeated per-station display is not another observation.
+        if(v.threeD>row.threeD)Object.assign(row,v);
+        if(!row.stations.includes(station))row.stations.push(station);
+        for(const source of g.sources||[])if(!row.sources.includes(source))row.sources.push(source);
+      });
+    });
+  });
+  const descending=(a,b)=>b.threeD-a.threeD||a.name.localeCompare(b.name);
+  return {gps:[...gps.values()].filter(r=>r.threeD>threshold).sort(descending),edm:edm.sort(descending)};
+}
+function buildHighResidualsHtml(results,interactive=true){
+  const rows=collectHighResiduals(results);
+  let html='<section class="card" id="residual-review"><h2 class="sec-title">殘差大於 0.020 m 的點</h2><p>依未四捨五入的 3D 殘差篩選，各類由大到小排列；同點號 GPS 僅列一次，測站觀測逐站保留。</p>';
+  if(!(results||[]).some(Boolean))return html+'<p>目前沒有可用成果，無法檢查殘差。</p></section>';
+  for(const [kind,list] of [['GPS',rows.gps],['EDM',rows.edm]]){
+    html+='<h3 style="font-size:13px;margin:12px 0 6px">'+(kind==='GPS'?'GPS 殘差：聯合座標 − GPS':'測站觀測殘差：本站轉換 − 聯合座標')+'（'+list.length+' 筆）</h3>';
+    if(!list.length){html+='<p>無大於 0.020 m 的'+(kind==='GPS'?' GPS':'測站觀測')+'殘差。</p>';continue;}
+    html+='<div class="tbl-wrap"><table><thead><tr><th>點號</th><th>測站</th><th>GPS 來源</th><th>ΔE（m）</th><th>ΔN（m）</th><th>ΔH（m）</th><th>水平 2D（m）</th><th>3D（m）</th></tr></thead><tbody>';
+    html+=list.map(r=>'<tr><td>'+escHtml(r.name)+'</td><td>'+escHtml(r.stations.join('、'))+'</td><td>'+escHtml(r.sources.join('、')||'—')+'</td>'+[r.dE,r.dN,r.dH,r.horizontal].map(v=>'<td>'+fmtNum(v)+'</td>').join('')+'<td>'+rmsTag(r.threeD)+'</td></tr>').join('');
+    html+='</tbody></table></div>';
+  }
+  html+='<p style="margin-top:10px">超限是檢核提示，不代表 GPS 必然錯誤。先比較各站內部吻合與 GPS 水平／高程差，核對點號、原始觀測及控制幾何，再決定是否停用該筆 GPS；改動後須重新計算並保留足夠控制點。</p>';
+  if(interactive&&(rows.gps.length||rows.edm.length))html+='<div class="btn-row"><button type="button" onclick="downloadHighResiduals()">下載超限殘差 CSV</button></div>';
+  return html+'</section>';
+}
+function downloadHighResiduals(){
+  const data=window._lastReportData;if(!data)return;
+  const rows=collectHighResiduals(data.results), header=['Mode','Type','Point','Stations','GPS_sources','dE_m','dN_m','dH_m','Horizontal_2D_m','Residual_3D_m'];
+  const values=[...rows.gps,...rows.edm].map(r=>[data.adjustmentMode||'joint',r.kind,r.name,r.stations.join(';'),r.sources.join(';'),r.dE,r.dN,r.dH,r.horizontal,r.threeD]);
+  downloadTextFile('TraverseLink_'+(data.adjustmentMode||'joint')+'_residuals_gt_0.020m.csv','\ufeff'+[header,...values].map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
+}
+
+
 function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], generatedAt=null, currentZone=121){
   window._currentZone=currentZone===119?119:121;
   const resultGeneratedAt=generatedAt ? new Date(generatedAt) : new Date();
@@ -1366,7 +1415,7 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], gen
   renderChain();
   renderPriorityResults();
 
-  document.getElementById('result-area').innerHTML=html;
+  document.getElementById('result-area').innerHTML=buildHighResidualsHtml(results)+html;
   clearTimeout(window._mapRenderTimer);
   window._mapRenderTimer=setTimeout(()=>renderMap(mpts,window._currentZone), 80);
 }
@@ -1759,7 +1808,7 @@ function buildReportHtml(data){
   <h2>建議檢查事項</h2>
   <ul>${suggestions.map(s=>`<li>${escHtml(s)}</li>`).join('')}</ul>
   <div class="small">RMS/SD 單位為公尺。此報表依目前畫面最後一次計算結果產生。</div>
-  ${buildAdjustmentModeHtml(data.adjustmentMode||'joint',data.adjustmentInfo)}</body></html>`;
+  ${buildAdjustmentModeHtml(data.adjustmentMode||'joint',data.adjustmentInfo)}${buildHighResidualsHtml(data.results,false)}</body></html>`;
 }
 function downloadReport(){
   const data=window._lastReportData;
