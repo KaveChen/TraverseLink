@@ -200,7 +200,7 @@ body{font-family:"Segoe UI","Microsoft JhengHei",sans-serif;background:#f4f6f8}
 <div class="cad-workspace">
 <div class="cad-section-head"><h3><span>01</span> 貼上坐標資料</h3><p>支援空格、逗號與 Excel Tab；小數四捨五入至第三位。</p></div>
 <div class="cad-grid">
-<div class="cad-input-panel"><div class="cad-input-heading"><label for="txt-control-pts">控制點</label><span class="cad-type">3D · 保留高程</span></div><p id="cad-control-format" class="cad-format">點號 X Y Z <span>固定 CP → CPT</span></p><textarea id="txt-control-pts" spellcheck="false" aria-describedby="cad-control-format cad-control-note" placeholder="CP01 305120.452 2765123.881 45.210"></textarea><p id="cad-control-note" class="cad-field-note">自動填入 CPTNAME 點號與 CPTELEV 高程。</p></div>
+<div class="cad-input-panel"><div class="cad-input-heading"><label for="txt-control-pts">控制點</label><span class="cad-type">2D · 屬性保留高程</span></div><p id="cad-control-format" class="cad-format">點號 X Y Z <span>固定 CP → CPT</span></p><textarea id="txt-control-pts" spellcheck="false" aria-describedby="cad-control-format cad-control-note" placeholder="CP01 305120.452 2765123.881 45.210"></textarea><p id="cad-control-note" class="cad-field-note">自動填入 CPTNAME 點號與 CPTELEV 高程。</p></div>
 <div class="cad-input-panel"><div class="cad-input-heading"><label for="txt-manhole-pts">人手孔蓋</label><span class="cad-type">2D · Z 設為 0</span></div><p id="cad-manhole-format" class="cad-format">孔號 Code X Y [Z] <span>[Z] 可省略</span></p><textarea id="txt-manhole-pts" spellcheck="false" aria-describedby="cad-manhole-format cad-manhole-note" placeholder="MH01 TMH 305155.890 2765098.112"></textarea><p id="cad-manhole-note" class="cad-field-note">依 Code 插入純圖塊，不填孔號屬性。</p></div>
 </div>
 <section class="cad-validation" aria-labelledby="cad-validation-title">
@@ -1724,7 +1724,10 @@ function parseCadSurveyLine(line,kind){
  const values=kind==='control'?t.slice(1):t.slice(1,-1);
  if(values.some(v=>!numeric.test(v)||!Number.isFinite(Number(v))))throw new Error('坐標必須為有限數值');
  if(!/^[^\s,;"\x00-\x1f]+$/.test(t[0])||(kind!=='control' && ! /^[\p{L}\p{N}_-]+$/u.test(t[t.length-1])))throw new Error('點號或代碼含不支援字元');
- return {name:t[0],x:Number(t[1]),y:Number(t[2]),z:kind==='control'?Number(t[3]):0,cadX:formatCadDecimal(t[1]),cadY:formatCadDecimal(t[2]),cadZ:kind==='control'?formatCadDecimal(t[3]):'0.000',code:kind==='control'?'CP':t[t.length-1].toUpperCase()};
+ const code=kind==='control'?'CP':t[t.length-1].toUpperCase();
+ const hasZ=kind==='control'||t.length===5;
+ if(kind==='manhole' && String(CAD_BLOCK_MAP[code]||'').toUpperCase()==='12-N-E' && !hasZ)throw new Error('12-N-E 需要提供 Z 高程（孔號 Code X Y Z）');
+ return {name:t[0],x:Number(t[1]),y:Number(t[2]),z:hasZ?Number(t[3]):0,cadX:formatCadDecimal(t[1]),cadY:formatCadDecimal(t[2]),cadZ:hasZ?formatCadDecimal(t[3]):'0.000',code:kind==='control'?'CP':t[t.length-1].toUpperCase()};
 }
 function analyzeManholeCodes(text){
  const matched=new Map(),unknown=new Map(),errors=[];
@@ -1811,7 +1814,7 @@ function buildCadScript(controlText,manholeText,inheritLayers=true){
  commands.push('(if (/= (getvar "OSMODE") 0) (setvar "OSMODE" 0))');
  commands.push('(setvar "OSNAPCOORD" 1)');
 
- if(points.some(pt=>pt.kind==='control'))commands.push('(defun tlcad-cpattrs (before nm elev / en ed att ad tag n z) (setq en (entlast)) (if (and en (not (eq en before))) (progn (setq ed (entget en)) (if (and (= (cdr (assoc 0 ed)) "INSERT") (= (strcase (cdr (assoc 2 ed))) "CPT")) (progn (if (= (cdr (assoc 66 ed)) 1) (progn (setq att (entnext en)) (while (and att (= (cdr (assoc 0 (setq ad (entget att)))) "ATTRIB")) (setq tag (strcase (cdr (assoc 2 ad)))) (cond ((= tag "CPTNAME") (entmod (subst (cons 1 nm) (assoc 1 ad) ad)) (setq n T)) ((= tag "CPTELEV") (entmod (subst (cons 1 elev) (assoc 1 ad) ad)) (setq z T))) (setq att (entnext att))))) (entupd en) (if (not (and n z)) (prompt "\\nTraverseLink: CPTNAME or CPTELEV attribute missing; check CPT block.")))))) (princ))');
+ if(points.some(pt=>pt.kind==='control'||String(CAD_BLOCK_MAP[pt.code]).toUpperCase()==='12-N-E'))commands.push('(defun tlcad-cpattrs (before nm elev / en ed att ad tag n z) (setq en (entlast)) (if (and en (not (eq en before))) (progn (setq ed (entget en)) (if (and (= (cdr (assoc 0 ed)) "INSERT") (member (strcase (cdr (assoc 2 ed))) \'("CPT" "12-N-E"))) (progn (if (= (cdr (assoc 66 ed)) 1) (progn (setq att (entnext en)) (while (and att (= (cdr (assoc 0 (setq ad (entget att)))) "ATTRIB")) (setq tag (strcase (cdr (assoc 2 ad)))) (cond ((= tag "CPTNAME") (entmod (subst (cons 1 nm) (assoc 1 ad) ad)) (setq n T)) ((= tag "CPTELEV") (entmod (subst (cons 1 elev) (assoc 1 ad) ad)) (setq z T))) (setq att (entnext att))))) (entupd en) (if (not (and n z)) (prompt "\\nTraverseLink: CPTNAME or CPTELEV attribute missing; check CPT or 12-N-E block.")))))) (princ))');
 
  if(inheritLayers){
   // Resolve all layers before creating references; original sample blocks stay untouched.
@@ -1826,9 +1829,9 @@ function buildCadScript(controlText,manholeText,inheritLayers=true){
   // Each answer has its own line so script prompts are deterministic.
   const block=CAD_BLOCK_MAP[pt.code]||CAD_BLOCK_MAP.DEFAULT;
   const scale='500';
-  if(inheritLayers || pt.kind==='control')commands.push('(setq tlcad-before (entlast))');
-  commands.push('_.-INSERT',block,'_non',`${pt.cadX},${pt.cadY},${pt.cadZ}`,scale,scale,'0');
-  if(pt.kind==='control')commands.push(`(tlcad-cpattrs tlcad-before ${JSON.stringify(pt.name)} "${pt.cadZ}")`);
+  if(inheritLayers || pt.kind==='control' || block.toUpperCase()==='12-N-E')commands.push('(setq tlcad-before (entlast))');
+  commands.push('_.-INSERT',block,'_non',`(trans '(${pt.cadX} ${pt.cadY} 0.000) 0 1)`,scale,scale,'0');
+  if(pt.kind==='control'||block.toUpperCase()==='12-N-E')commands.push(`(tlcad-cpattrs tlcad-before ${JSON.stringify(pt.name)} "${pt.cadZ}")`);
   if(inheritLayers)commands.push(`((lambda (/ en ed ly) (setq en (entlast)) (if (and en (not (eq en tlcad-before))) (progn (setq ed (entget en) ly (cdr (assoc "${block}" tlcad-layers))) (if (and (= (cdr (assoc 0 ed)) "INSERT") (= (strcase (cdr (assoc 2 ed))) (strcase "${block}")) ly) (progn (entmod (subst (cons 8 ly) (assoc 8 ed) ed)) (entupd en)))))))`);
  }
  commands.push('(progn (setvar "OSMODE" (car tlcad-snap-state)) (setvar "OSNAPCOORD" (cadr tlcad-snap-state)) (setq tlcad-snap-state nil) (princ))');
