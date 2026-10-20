@@ -765,9 +765,10 @@ function tryCalcStation(s, lib){
       const g=gpsMap[p.name];
       if(g){p.gE=parseFloat(g.gE);p.gN=parseFloat(g.gN);p.gH=parseFloat(g.gH)||0;p.isCtrl=true;p.isGPS=true;ctrl.push(p);}
     });
-  } else {
+  }
+  {
     parsed.forEach(p=>{
-      if(lib[p.name]){p.gE=lib[p.name].E;p.gN=lib[p.name].N;p.gH=lib[p.name].H;p.isCtrl=true;ctrl.push(p);}
+      if(!p.isCtrl&&lib[p.name]){p.gE=lib[p.name].E;p.gN=lib[p.name].N;p.gH=lib[p.name].H;p.isCtrl=true;ctrl.push(p);}
     });
   }
   if(ctrl.length<2) return null;
@@ -832,80 +833,86 @@ function findSegments(results){
 }
 
 // ── 線性內插平差：把閉合差按站序比例分配給傳遞站 ──────────────
+// Joint least squares by alternating exact point and station fits.
+// GPS coordinates and transformed EDM observations have equal coordinate weights.
+// GPS is a soft constraint; the station switch only controls GPS availability.
 function applyClosureAdjustment(results){
-  const adjLog=[];
-  const segs=findSegments(results);
-  if(!segs.length) return {adjLog, closures:[]};
-
-  const closures=[];
-
-  segs.forEach(seg=>{
-    // open_start / open_end：單端固定，無閉合差，僅記錄
-    if(seg.type==='open_start'){
-      adjLog.push(
-        `<span style="color:var(--text3)">ℹ ${seg.relays.map(i=>stations[i].name).join('、')} → `+
-        `${stations[seg.to].name}（單端固定，無閉合差，座標由 ${stations[seg.to].name} 向前傳遞）</span>`
-      );
-      return;
-    }
-    if(seg.type==='open_end'){
-      adjLog.push(
-        `<span style="color:var(--text3)">ℹ ${stations[seg.from].name} → `+
-        `${seg.relays.map(i=>stations[i].name).join('、')}（單端固定，無閉合差，座標由 ${stations[seg.from].name} 向後傳遞）</span>`
-      );
-      return;
-    }
-
-    // closed：兩端都有GPS，計算閉合差並平差
-    const rFrom=results[seg.from], rTo=results[seg.to];
-    if(!rFrom||!rTo) return;
-
-    const fromLib={}, toLib={};
-    rFrom.pts.forEach(p=>{ fromLib[p.name]={E:p.E,N:p.N,H:p.H}; });
-    rTo.pts.forEach(p=>{ toLib[p.name]={E:p.E,N:p.N,H:p.H}; });
-
-    const commonPts=Object.keys(fromLib).filter(n=>toLib[n]);
-    if(!commonPts.length){
-      adjLog.push(`<span style="color:var(--amber)">⚠ ${stations[seg.from].name} → ${stations[seg.to].name}：找不到兩站共同點，無法計算閉合差</span>`);
-      return;
-    }
-
-    let dE=0,dN=0,dH=0;
-    commonPts.forEach(n=>{
-      dE+=toLib[n].E-fromLib[n].E;
-      dN+=toLib[n].N-fromLib[n].N;
-      dH+=toLib[n].H-fromLib[n].H;
+  const gps=Object.create(null), counts=Object.create(null);
+  stations.forEach(s=>{
+    if(!s.hasGPS) return;
+    Object.entries(parseGPS(s.gpsPasteText)).forEach(([name,g])=>{
+      const v={E:+g.gE,N:+g.gN,H:+g.gH||0};
+      if(!Number.isFinite(v.E)||!Number.isFinite(v.N)) return;
+      (gps[name]||(gps[name]=[])).push(v);
     });
-    dE/=commonPts.length; dN/=commonPts.length; dH/=commonPts.length;
-
-    const totalSteps=seg.relays.length+1;
-    const closure3D=Math.sqrt(dE*dE+dN*dN+dH*dH);
-
-    closures.push({
-      fromName:stations[seg.from].name,
-      toName:stations[seg.to].name,
-      relayNames:seg.relays.map(i=>stations[i].name),
-      dE,dN,dH,closure3D,commonPts
-    });
-
-    // 按比例分配修正量給中間傳遞站
-    seg.relays.forEach((si,idx)=>{
-      if(!results[si]) return;
-      const ratio=(idx+1)/totalSteps;
-      const corrE=-dE*ratio, corrN=-dN*ratio, corrH=-dH*ratio;
-      results[si].pts.forEach(p=>{
-        p.E+=corrE; p.N+=corrN; p.H+=corrH;
-        p.adj={corrE,corrN,corrH};
-      });
-      results[si].adjApplied={corrE,corrN,corrH,ratio};
-    });
-
-    adjLog.push(
-      `<span class="ok">✓ ${stations[seg.from].name} → ${stations[seg.to].name}（閉合差 E=${dE.toFixed(4)}m N=${dN.toFixed(4)}m H=${dH.toFixed(4)}m 3D=${closure3D.toFixed(4)}m，共同點：${commonPts.join('、')}，已按比例修正 ${seg.relays.map(i=>stations[i].name).join('、')}）</span>`
-    );
   });
-
-  return {adjLog, closures};
+  results.forEach(r=>{if(r) r.pts.forEach(p=>{counts[p.name]=(counts[p.name]||0)+1;});});
+  const before=results.map(r=>r&&r.pts.map(p=>({E:p.E,N:p.N,H:p.H})));
+  let points=Object.create(null), converged=false, iterations=0;
+  function updatePoints(){
+    const sums=Object.create(null);
+    function add(name,p){
+      const v=sums[name]||(sums[name]={E:0,N:0,H:0,n:0});
+      v.E+=p.E; v.N+=p.N; v.H+=p.H; v.n++;
+    }
+    results.forEach(r=>{if(r) r.pts.forEach(p=>add(p.name,p));});
+    Object.keys(sums).forEach(name=>(gps[name]||[]).forEach(p=>add(name,p)));
+    let delta=0;
+    Object.entries(sums).forEach(([name,v])=>{
+      const next={E:v.E/v.n,N:v.N/v.n,H:v.H/v.n};
+      if(points[name]) delta=Math.max(delta,Math.hypot(next.E-points[name].E,next.N-points[name].N,next.H-points[name].H));
+      points[name]=next;
+    });
+    return delta;
+  }
+  updatePoints();
+  for(iterations=1;iterations<=2000;iterations++){
+    let movement=0;
+    results.forEach(r=>{
+      if(!r) return;
+      const ctrl=r.pts.filter(p=>counts[p.name]>1||gps[p.name]).map(p=>({
+        ...p,gE:points[p.name].E,gN:points[p.name].N,gH:points[p.name].H
+      }));
+      const hp=helmert(ctrl);
+      if(!hp) return;
+      r.hp=hp; r.sharedNames=ctrl.map(p=>p.name);
+      r.pts.forEach(p=>{
+        const E=hp.a*p.lx-hp.b*p.ly+hp.tx,N=hp.b*p.lx+hp.a*p.ly+hp.ty,H=p.lz+hp.dz;
+        movement=Math.max(movement,Math.hypot(E-p.E,N-p.N,H-p.H));
+        p.E=E;p.N=N;p.H=H;
+      });
+    });
+    const delta=updatePoints();
+    if(Math.max(delta,movement)<1e-8){converged=true;break;}
+  }
+  const closures=[];
+  results.forEach((r,i)=>{
+    if(!r) return;
+    let corrE=0,corrN=0,corrH=0;
+    r.pts.forEach((p,j)=>{
+      p.adj={corrE:p.E-before[i][j].E,corrN:p.N-before[i][j].N,corrH:p.H-before[i][j].H};
+      corrE+=p.adj.corrE;corrN+=p.adj.corrN;corrH+=p.adj.corrH;
+      p.joint={...points[p.name]};
+      p.residual={dE:p.E-p.joint.E,dN:p.N-p.joint.N,dH:p.H-p.joint.H};
+      p.gpsResiduals=(gps[p.name]||[]).map(g=>({dE:p.joint.E-g.E,dN:p.joint.N-g.N,dH:p.joint.H-g.H}));
+      p.tag=gps[p.name]?'gps':counts[p.name]>1?'shared':'new';
+    });
+    r.adjApplied={corrE:corrE/r.pts.length,corrN:corrN/r.pts.length,corrH:corrH/r.pts.length};
+    r.jointAdjustment={converged,iterations:Math.min(iterations,2000),weightMode:'equal'};
+    // Recompute station quality against the final consensus coordinates.
+    const ctrl=r.pts.filter(p=>counts[p.name]>1||gps[p.name]).map(p=>({...p,gE:p.joint.E,gN:p.joint.N,gH:p.joint.H}));
+    const quality=helmert(ctrl);
+    if(quality) ['n','rmsE','rmsN','rmsH','rms2D','rms3D','sdE','sdN','sdH','sd2D','sd3D'].forEach(k=>{r.hp[k]=quality[k];});
+    for(let k=i+1;k<results.length;k++){
+      const other=results[k];if(!other) continue;
+      const map=new Map(other.pts.map(p=>[p.name,p]));
+      const common=r.pts.filter(p=>map.has(p.name));if(!common.length) continue;
+      let dE=0,dN=0,dH=0,sum=0;
+      common.forEach(p=>{const q=map.get(p.name),e=q.E-p.E,n=q.N-p.N,h=q.H-p.H;dE+=e;dN+=n;dH+=h;sum+=e*e+n*n+h*h;});
+      closures.push({fromName:stations[i].name,toName:stations[k].name,relayNames:[],commonPts:common.map(p=>p.name),dE:dE/common.length,dN:dN/common.length,dH:dH/common.length,closure3D:Math.sqrt(sum/common.length)});
+    }
+  });
+  return {closures,adjLog:[`<span class="${converged?'ok':'rms-warn'}">多站聯合平差：GPS 與 EDM 座標等權重；GPS 為軟約束。${Math.min(iterations,2000)} 次迭代，${converged?'已收斂':'尚未收斂，請檢查測站連結與控制點'}。共同點表列平差後站間差的 RMS；各站保留轉換成果，合併表使用共同點聯合座標。</span>`]};
 }
 
 function runAll(){
@@ -914,7 +921,10 @@ function runAll(){
   // 第一階段：多輪迭代計算（雙向傳遞）
   const MAX_ROUNDS=stations.length+2;
   const results=new Array(stations.length).fill(null);
-  const lib={};
+  const lib=Object.create(null);
+  stations.forEach(s=>{if(s.hasGPS) Object.entries(parseGPS(s.gpsPasteText)).forEach(([name,g])=>{
+    if(Number.isFinite(+g.gE)&&Number.isFinite(+g.gN)) lib[name]={E:+g.gE,N:+g.gN,H:+g.gH||0};
+  });});
   const iterLog=[];
   let changed=true;
   let round=0;
@@ -998,6 +1008,14 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], gen
       </tr>`;
     });
     html+='</tbody></table></div>';
+    if(r.jointAdjustment){
+      html+='<details><summary>聯測與 GPS 殘差（m）</summary><div class="tbl-wrap"><table><thead><tr><th>點號</th><th>來源</th><th>ΔE</th><th>ΔN</th><th>ΔH</th><th>3D</th></tr></thead><tbody>';
+      r.pts.forEach(p=>{
+        const rows=[{kind:'本站轉換 − 聯合座標',v:p.residual},...(p.gpsResiduals||[]).map(v=>({kind:'聯合座標 − GPS',v}))];
+        rows.forEach(({kind,v})=>{if(v) html+=`<tr><td>${escHtml(p.name)}</td><td>${kind}</td><td>${fmtNum(v.dE)}</td><td>${fmtNum(v.dN)}</td><td>${fmtNum(v.dH)}</td><td>${rmsTag(Math.hypot(v.dE,v.dN,v.dH))}</td></tr>`;});
+      });
+      html+='</tbody></table></div></details>';
+    }
   });
   html+='</div>';
   html+=`<div class="btn-row" style="margin-bottom:20px"><button onclick="copyTsv('per')" id="cb_per">複製各站結果 (TSV)</button></div>`;
@@ -1009,10 +1027,10 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], gen
     const sname=stations[si].name;
     r.pts.forEach(p=>{
       if(!mmap[p.name]){
-        mmap[p.name]={E:p.E,N:p.N,H:p.H,attr:p.attr,tag:p.tag,stns:[sname]};
+        mmap[p.name]={E:p.joint?.E??p.E,N:p.joint?.N??p.N,H:p.joint?.H??p.H,attr:p.attr,tag:p.tag,stns:[sname]};
       } else {
         if(!mmap[p.name].stns.includes(sname)) mmap[p.name].stns.push(sname);
-        mmap[p.name].E=p.E; mmap[p.name].N=p.N; mmap[p.name].H=p.H;
+        mmap[p.name].E=p.joint?.E??p.E; mmap[p.name].N=p.joint?.N??p.N; mmap[p.name].H=p.joint?.H??p.H;
         if(p.tag==='gps') mmap[p.name].tag='gps';
         else if(p.tag==='shared'&&mmap[p.name].tag==='new') mmap[p.name].tag='shared';
         if(p.attr&&!mmap[p.name].attr) mmap[p.name].attr=p.attr;
