@@ -215,7 +215,7 @@ body{font-family:"Segoe UI","Microsoft JhengHei",sans-serif;background:#f4f6f8}
 </div>
 <div class="cad-export-footer"><p id="cad-export-count">貼上資料後即可匯出</p><button type="button" class="primary" id="btn-generate-scr">下載 AutoCAD 腳本 .scr</button></div>
 <div id="cad-status" role="status" aria-live="polite"></div>
-<details class="cad-details cad-guide"><summary>圖塊對照與 AutoCAD 使用說明</summary><div class="cad-details-body"><h3>執行前</h3><p>目標 DWG 須先定義對應圖塊，並使用相同 TWD97 二度分帶、世界坐標系（WCS），繪圖單位為公尺。控制點 CPT 圖塊需有 CPTNAME、CPTELEV 屬性標籤。</p><h3>內建 Code 對照</h3><p class="cad-block-reference">TMH → 11 · EMH → 12 · SM → 15 · RM → 16 · WV → 17 · GV → 18<br>F → 19 · UMH → 20 · THH → 21 · EHH → 22 · CP → CPT</p><h3>圖層與腳本執行</h3><p>圖層依序取同名既有圖塊參考的非 0 圖層、圖塊內第一個非 0 圖層、既有參考的 0 圖層，皆無則使用目前圖層。關閉或凍結的圖層可能讓圖塊不可見。</p><p>先儲存圖面，再將 .scr 拖入 AutoCAD。正常執行完成後會恢復原鎖點設定；腳本另會設定 ATTREQ、ATTDIA、CMDECHO，請依需要調回原值。</p></div></details>
+<details class="cad-details cad-guide"><summary>圖塊對照與 AutoCAD 使用說明</summary><div class="cad-details-body"><h3>執行前</h3><p>目標 DWG 須先定義對應圖塊，並使用相同 TWD97 二度分帶、世界坐標系（WCS），繪圖單位為公尺。控制點 CPT 圖塊需有 CPTNAME、CPTELEV 屬性標籤。</p><h3>內建 Code 對照</h3><p class="cad-block-reference">TMH → 11 · EMH → 12 · EMHX → 12-N-E · UHH → 30 · WMH → 98 · SM → 15 · RM → 16 · WV → 17 · GV → 18<br>F → 19 · UMH → 20 · THH → 21 · EHH → 22 · CP → CPT</p><h3>圖層與腳本執行</h3><p>圖層依序取同名既有圖塊參考的非 0 圖層、圖塊內第一個非 0 圖層、既有參考的 0 圖層，皆無則使用目前圖層。關閉或凍結的圖層可能讓圖塊不可見。</p><p>先儲存圖面，再將 .scr 拖入 AutoCAD。正常執行完成後會恢復原鎖點設定；腳本另會設定 ATTREQ、ATTDIA、CMDECHO，請依需要調回原值。</p></div></details>
 </section>
 <div id="survey-original-panel">
 <div id="priority-results-area"></div>
@@ -1644,7 +1644,7 @@ loadExample();
 </script>
 <script>
 
-const CAD_BASE_BLOCK_MAP = Object.freeze({TMH:'11',EMH:'12',SM:'15',RM:'16',WV:'17',GV:'18',F:'19',UMH:'20',THH:'21',EHH:'22',CP:'CPT',DEFAULT:'BLK_POINT_DEFAULT'});
+const CAD_BASE_BLOCK_MAP = Object.freeze({TMH:'11',EMH:'12',EMHX:'12-N-E',UHH:'30',WMH:'98',SM:'15',RM:'16',WV:'17',GV:'18',F:'19',UMH:'20',THH:'21',EHH:'22',CP:'CPT',DEFAULT:'BLK_POINT_DEFAULT'});
 let CAD_BLOCK_MAP=Object.assign(Object.create(null),CAD_BASE_BLOCK_MAP);
 const CAD_CUSTOM_MAP_KEY='TraverseLink.cadCustomBlockMap.v1';
 function parseCadCustomMap(text){
@@ -1655,6 +1655,7 @@ function parseCadCustomMap(text){
   if(fields.length!==2){errors.push(`第 ${i+1} 行：請輸入 Code 與圖塊編號兩欄。`);return;}
   const code=fields[0].toUpperCase(),block=fields[1];
   if(!/^[\p{L}\p{N}_-]+$/u.test(code)||! /^[\p{L}\p{N}_-]+$/u.test(block)){errors.push(`第 ${i+1} 行：Code 與圖塊名稱僅支援中英文字、數字、底線與連字號。`);return;}
+  if(Object.hasOwn(CAD_BASE_BLOCK_MAP,code)&&block===CAD_BASE_BLOCK_MAP[code])return;
   if(Object.hasOwn(CAD_BASE_BLOCK_MAP,code)){errors.push(`第 ${i+1} 行：${code} 為內建 Code，請使用其他代碼。`);return;}
   if(Object.hasOwn(custom,code)){errors.push(`第 ${i+1} 行：${code} 重複設定。`);return;}
   custom[code]=block;
