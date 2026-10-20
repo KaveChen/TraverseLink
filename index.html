@@ -1829,7 +1829,7 @@ function buildCadScript(controlText,manholeText,inheritLayers=true){
  for(const pt of points){
   // Each answer has its own line so script prompts are deterministic.
   const block=CAD_BLOCK_MAP[pt.code]||CAD_BLOCK_MAP.DEFAULT;
-  const scale='500';
+  const scale=block==='98'?'0.5':'500';
   if(inheritLayers || pt.kind==='control' || block.toUpperCase()==='12-N-E')commands.push('(setq tlcad-before (entlast))');
   commands.push('_.-INSERT',block,'_non',`(trans '(${pt.cadX} ${pt.cadY} 0.000) 0 1)`,scale,scale,'0');
   if(pt.kind==='control'||block.toUpperCase()==='12-N-E')commands.push(`(tlcad-cpattrs tlcad-before ${JSON.stringify(pt.name)} "${pt.cadZ}")`);
