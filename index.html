@@ -841,10 +841,23 @@ function applyClosureAdjustment(results){
   stations.forEach(s=>{
     if(!s.hasGPS) return;
     Object.entries(parseGPS(s.gpsPasteText)).forEach(([name,g])=>{
-      const v={E:+g.gE,N:+g.gN,H:+g.gH||0};
+      const v={E:+g.gE,N:+g.gN,H:+g.gH||0,source:s.name};
       if(!Number.isFinite(v.E)||!Number.isFinite(v.N)) return;
       (gps[name]||(gps[name]=[])).push(v);
     });
+  });
+  // One GPS constraint per point name. Repeated coordinates do not add weight.
+  // When coordinates disagree, average distinct coordinate tuples only.
+  const gpsConflicts=[];
+  Object.keys(gps).forEach(name=>{
+    const raw=gps[name], unique=new Map();
+    raw.forEach(v=>unique.set(JSON.stringify([v.E,v.N,v.H]),v));
+    const values=[...unique.values()], n=values.length;
+    const merged={E:0,N:0,H:0,sources:raw.map(v=>v.source),coordinateCount:n};
+    values.forEach(v=>{merged.E+=v.E/n;merged.N+=v.N/n;merged.H+=v.H/n;});
+    merged.maxDeviation=Math.max(...values.map(v=>Math.hypot(v.E-merged.E,v.N-merged.N,v.H-merged.H)));
+    if(n>1) gpsConflicts.push(name);
+    gps[name]=[merged];
   });
   results.forEach(r=>{if(r) r.pts.forEach(p=>{counts[p.name]=(counts[p.name]||0)+1;});});
   const before=results.map(r=>r&&r.pts.map(p=>({E:p.E,N:p.N,H:p.H})));
@@ -894,7 +907,7 @@ function applyClosureAdjustment(results){
       corrE+=p.adj.corrE;corrN+=p.adj.corrN;corrH+=p.adj.corrH;
       p.joint={...points[p.name]};
       p.residual={dE:p.E-p.joint.E,dN:p.N-p.joint.N,dH:p.H-p.joint.H};
-      p.gpsResiduals=(gps[p.name]||[]).map(g=>({dE:p.joint.E-g.E,dN:p.joint.N-g.N,dH:p.joint.H-g.H}));
+      p.gpsResiduals=(gps[p.name]||[]).map(g=>({dE:p.joint.E-g.E,dN:p.joint.N-g.N,dH:p.joint.H-g.H,sources:g.sources,coordinateCount:g.coordinateCount,maxDeviation:g.maxDeviation}));
       p.tag=gps[p.name]?'gps':counts[p.name]>1?'shared':'new';
     });
     r.adjApplied={corrE:corrE/r.pts.length,corrN:corrN/r.pts.length,corrH:corrH/r.pts.length};
@@ -912,7 +925,7 @@ function applyClosureAdjustment(results){
       closures.push({fromName:stations[i].name,toName:stations[k].name,relayNames:[],commonPts:common.map(p=>p.name),dE:dE/common.length,dN:dN/common.length,dH:dH/common.length,closure3D:Math.sqrt(sum/common.length)});
     }
   });
-  return {closures,adjLog:[`<span class="${converged?'ok':'rms-warn'}">多站聯合平差：GPS 與 EDM 座標等權重；GPS 為軟約束。${Math.min(iterations,2000)} 次迭代，${converged?'已收斂':'尚未收斂，請檢查測站連結與控制點'}。共同點表列平差後站間差的 RMS；各站保留轉換成果，合併表使用共同點聯合座標。</span>`]};
+  return {closures,adjLog:[`<span class="${converged?'ok':'rms-warn'}">多站聯合平差：GPS 與 EDM 座標等權重；GPS 為軟約束，同點號僅一筆 GPS 約束。${gpsConflicts.length?'GPS 座標不一致：'+gpsConflicts.map(escHtml).join('、')+'（不同座標取平均，重複座標不加權）。':''}${Math.min(iterations,2000)} 次迭代，${converged?'已收斂':'尚未收斂，請檢查測站連結與控制點'}。共同點表列平差後站間差的 RMS；各站保留轉換成果，合併表使用共同點聯合座標。</span>`]};
 }
 
 function runAll(){
@@ -1011,8 +1024,8 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], gen
     if(r.jointAdjustment){
       html+='<details><summary>聯測與 GPS 殘差（m）</summary><div class="tbl-wrap"><table><thead><tr><th>點號</th><th>來源</th><th>ΔE</th><th>ΔN</th><th>ΔH</th><th>3D</th></tr></thead><tbody>';
       r.pts.forEach(p=>{
-        const rows=[{kind:'本站轉換 − 聯合座標',v:p.residual},...(p.gpsResiduals||[]).map(v=>({kind:'聯合座標 − GPS',v}))];
-        rows.forEach(({kind,v})=>{if(v) html+=`<tr><td>${escHtml(p.name)}</td><td>${kind}</td><td>${fmtNum(v.dE)}</td><td>${fmtNum(v.dN)}</td><td>${fmtNum(v.dH)}</td><td>${rmsTag(Math.hypot(v.dE,v.dN,v.dH))}</td></tr>`;});
+        const rows=[{kind:'本站轉換 − 聯合座標',v:p.residual},...(p.gpsResiduals||[]).map(v=>({kind:'聯合座標 − GPS（來源：'+(v.sources||[]).join('、')+'）'+(v.coordinateCount>1?'；座標不一致，最大偏離平均 '+fmtNum(v.maxDeviation)+' m':''),v}))];
+        rows.forEach(({kind,v})=>{if(v) html+=`<tr><td>${escHtml(p.name)}</td><td>${escHtml(kind)}</td><td>${fmtNum(v.dE)}</td><td>${fmtNum(v.dN)}</td><td>${fmtNum(v.dH)}</td><td>${rmsTag(Math.hypot(v.dE,v.dN,v.dH))}</td></tr>`;});
       });
       html+='</tbody></table></div></details>';
     }
