@@ -1034,20 +1034,23 @@ function calculateGeometryAdjustment(){
         maxDeviation:Math.max(...rows.map(r=>Math.hypot(...r.map((v,k)=>v-mean[k]))))};
     }
     const rows=stations.map(s=>parsePaste(s.localPasteText).map(p=>({name:p.name,lx:Number(p.lx),ly:Number(p.ly),lz:Number(p.lz),attr:p.attr||''})));
-    const names=rows.map(ps=>new Set(ps.map(p=>p.name))), owners=new Map();
-    names.forEach((set,i)=>set.forEach(name=>{if(!owners.has(name))owners.set(name,[]);owners.get(name).push(i);}));
-    const seen=new Set(), groups=[];
+    const names=rows.map(ps=>new Set(ps.map(p=>p.name)));
+    // Station order defines blocks: only an adjacent pair with >=2 distinct
+    // common point names connects. Later stations never bridge a previous break.
+    const groups=[];
     for(let i=0;i<stations.length;i++){
-      if(seen.has(i))continue;
-      const group=[], queue=[i];seen.add(i);
-      while(queue.length){const j=queue.shift();group.push(j);names[j].forEach(name=>owners.get(name).forEach(k=>{if(!seen.has(k)){seen.add(k);queue.push(k);}}));}
-      group.sort((i,j)=>String(stations[i].name).localeCompare(String(stations[j].name))||i-j);
-      groups.push(group);
+      const common=i?[...names[i-1]].filter(name=>names[i].has(name)).length:0;
+      if(i===0||common<2)groups.push([]);
+      groups[groups.length-1].push(i);
     }
     const results=stations.map(()=>null), components=[], adjLog=[];
     const transform=(p,h)=>({E:h.a*p.lx-h.b*p.ly+h.tx,N:h.b*p.lx+h.a*p.ly+h.ty,H:p.lz+h.dz});
     for(const group of groups){
-      const component={stations:group.map(i=>stations[i].name),status:'failed',converged:false,scale:1};
+      const blockId='B'+(components.length+1), owners=new Map();
+      group.forEach(i=>names[i].forEach(name=>{if(!owners.has(name))owners.set(name,[]);owners.get(name).push(i);}));
+      const previous=group[0]-1;
+      const boundaryCommon=previous>=0?[...names[previous]].filter(name=>names[group[0]].has(name)).length:null;
+      const component={blockId,boundaryCommon,stationIndices:[...group],stations:group.map(i=>stations[i].name),status:'failed',converged:false,scale:1};
       components.push(component);
       const fail=message=>{component.message=message;adjLog.push('<span class="err">'+escHtml(component.stations.join('、')+'：'+message)+'</span>');};
       if(group.some(i=>!rows[i].length||names[i].size!==rows[i].length||rows[i].some(p=>!p.name||![p.lx,p.ly,p.lz].every(Number.isFinite)))){
@@ -1105,7 +1108,7 @@ function calculateGeometryAdjustment(){
         const stationPose=poses.get(i), pts=rows[i].map(p=>{
           const world=absolute(transform(p,stationPose)), before=absolute(transform(p,initialPoses.get(i))), shared=owners.get(p.name).length>1;
           const target=joint[p.name],g=gps[p.name];
-          return {...p,...world,joint:{...target},tag:g?'gps':shared?'shared':'new',
+          return {...p,...world,blockId,joint:{...target},tag:g?'gps':shared?'shared':'new',
             adj:{corrE:world.E-before.E,corrN:world.N-before.N,corrH:world.H-before.H},
             residual:{dE:world.E-target.E,dN:world.N-target.N,dH:world.H-target.H},
             gpsResiduals:g?[{dE:target.E-g.E,dN:target.N-g.N,dH:target.H-g.H,sources:g.sources,coordinateCount:g.coordinateCount,maxDeviation:g.maxDeviation}]:[]};
@@ -1119,14 +1122,14 @@ function calculateGeometryAdjustment(){
         const sd=k=>{const mean=residuals.reduce((v,r)=>v+r[k],0)/n;return Math.sqrt(residuals.reduce((v,r)=>v+(r[k]-mean)**2,0)/Math.max(n-1,1));};
         Object.assign(hp,{n:check.length,rmsE:Math.sqrt(sq('dE')/n),rmsN:Math.sqrt(sq('dN')/n),rmsH:Math.sqrt(sq('dH')/n),sdE:sd('dE'),sdN:sd('dN'),sdH:sd('dH')});
         hp.rms2D=Math.hypot(hp.rmsE,hp.rmsN);hp.rms3D=Math.hypot(hp.rms2D,hp.rmsH);hp.sd2D=Math.hypot(hp.sdE,hp.sdN);hp.sd3D=Math.hypot(hp.sd2D,hp.sdH);
-        results[i]={hp,pts,gpsFitRms3D:component.gpsRms3D,sharedNames:check.map(p=>p.name),jointAdjustment:{converged:true,iterations,weightMode:'geometry-first'},
+        results[i]={hp,pts,blockId,gpsFitRms3D:component.gpsRms3D,sharedNames:check.map(p=>p.name),jointAdjustment:{converged:true,iterations,weightMode:'geometry-first'},
           adjApplied:{corrE:pts.reduce((v,p)=>v+p.adj.corrE,0)/pts.length,corrN:pts.reduce((v,p)=>v+p.adj.corrN,0)/pts.length,corrH:pts.reduce((v,p)=>v+p.adj.corrH,0)/pts.length}};
       }
       adjLog.push('<span class="ok">'+escHtml(component.stations.join('、'))+'：先聯測，再以 K＝1 整體套合 '+controls.length+' 個 GPS；GPS 套合 RMS 3D＝'+fit.rms3D.toFixed(4)+' m（與內部聯測殘差分開判讀）。</span>');
     }
     const closures=[];
     results.forEach((r,i)=>{if(!r)return;for(let j=i+1;j<results.length;j++){
-      const other=results[j];if(!other)continue;
+      const other=results[j];if(!other||r.blockId!==other.blockId)continue;
       const map=new Map(other.pts.map(p=>[p.name,p])), common=r.pts.filter(p=>map.has(p.name));if(!common.length)continue;
       const delta=common.map(p=>{const q=map.get(p.name);return {E:q.E-p.E,N:q.N-p.N,H:q.H-p.H};});
       closures.push({fromName:stations[i].name,toName:stations[j].name,relayNames:[],commonPts:common.map(p=>p.name),
@@ -1155,7 +1158,7 @@ function setAdjustmentMode(mode){
 function buildAdjustmentModeHtml(mode,info){
   const intro='<section class="mode-summary" aria-label="本次計算模式"><h2>計算模式：'+adjustmentModeLabel(mode)+'</h2>';
   if(mode==='joint')return intro+'</section>';
-  return intro+(info?.components?'<div class="tbl-wrap"><table><thead><tr><th>聯測群組／獨立站</th><th>狀態</th><th>GPS 套合 RMS 3D（m）</th></tr></thead><tbody>'+info.components.map(g=>'<tr><td>'+escHtml(g.stations.join('、'))+'</td><td>'+escHtml(g.status==='ok'?'完成；K＝1':g.message)+'</td><td>'+(g.status==='ok'?rmsTag(g.gpsRms3D):'—')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</section>';
+  return intro+(info?.components?'<div class="tbl-wrap"><table><thead><tr><th>聯測群組／獨立站</th><th>狀態</th><th>GPS 套合 RMS 3D（m）</th></tr></thead><tbody>'+info.components.map(g=>'<tr><td>'+escHtml((g.blockId?'測量區塊 '+g.blockId+'：':'')+g.stations.join('、')+(g.boundaryCommon!=null?'（與前站共同點 '+g.boundaryCommon+' 個）':''))+'</td><td>'+escHtml(g.status==='ok'?'完成；K＝1':g.message)+'</td><td>'+(g.status==='ok'?rmsTag(g.gpsRms3D):'—')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</section>';
 }
 
 function buildCalculationLogHtml(iterLog,adjLog){
@@ -1225,11 +1228,12 @@ function collectHighResiduals(results,threshold=0.020){
     const station=stations[i]?.name||String(i+1);
     r.pts.forEach(p=>{
       const v=vector(p.residual);
-      if(v&&v.threeD>threshold)edm.push({kind:'EDM',name:p.name,stations:[station],sources:[],...v});
+      if(v&&v.threeD>threshold)edm.push({kind:'EDM',name:p.name,blockId:p.blockId||r.blockId||'',stations:[station],sources:[],...v});
       (p.gpsResiduals||[]).forEach(g=>{
         const v=vector(g);if(!v)return;
-        let row=gps.get(p.name);
-        if(!row){row={kind:'GPS',name:p.name,stations:[],sources:[],...v};gps.set(p.name,row);}
+        const blockId=p.blockId||r.blockId||'',key=JSON.stringify([blockId,p.name]);
+        let row=gps.get(key);
+        if(!row){row={kind:'GPS',name:p.name,blockId,stations:[],sources:[],...v};gps.set(key,row);}
         // One project GPS constraint per name: repeated per-station display is not another observation.
         if(v.threeD>row.threeD)Object.assign(row,v);
         if(!row.stations.includes(station))row.stations.push(station);
@@ -1242,13 +1246,13 @@ function collectHighResiduals(results,threshold=0.020){
 }
 function buildHighResidualsHtml(results,interactive=true){
   const rows=collectHighResiduals(results);
-  let html='<section class="card" id="residual-review"><h2 class="sec-title">殘差大於 0.020 m 的點</h2><p>依未四捨五入的 3D 殘差篩選，各類由大到小排列；同點號 GPS 僅列一次，測站觀測逐站保留。</p>';
+  let html='<section class="card" id="residual-review"><h2 class="sec-title">殘差大於 0.020 m 的點</h2><p>依未四捨五入的 3D 殘差篩選，各類由大到小排列；同區塊同點號 GPS 僅列一次，不同區塊分列，測站觀測逐站保留。</p>';
   if(!(results||[]).some(Boolean))return html+'<p>目前沒有可用成果，無法檢查殘差。</p></section>';
   for(const [kind,list] of [['GPS',rows.gps],['EDM',rows.edm]]){
     html+='<h3 style="font-size:13px;margin:12px 0 6px">'+(kind==='GPS'?'GPS 殘差：聯合座標 − GPS':'測站觀測殘差：本站轉換 − 聯合座標')+'（'+list.length+' 筆）</h3>';
     if(!list.length){html+='<p>無大於 0.020 m 的'+(kind==='GPS'?' GPS':'測站觀測')+'殘差。</p>';continue;}
-    html+='<div class="tbl-wrap"><table><thead><tr><th>點號</th><th>測站</th><th>GPS 來源</th><th>ΔE（m）</th><th>ΔN（m）</th><th>ΔH（m）</th><th>水平 2D（m）</th><th>3D（m）</th></tr></thead><tbody>';
-    html+=list.map(r=>'<tr><td>'+escHtml(r.name)+'</td><td>'+escHtml(r.stations.join('、'))+'</td><td>'+escHtml(r.sources.join('、')||'—')+'</td>'+[r.dE,r.dN,r.dH,r.horizontal].map(v=>'<td>'+fmtNum(v)+'</td>').join('')+'<td>'+rmsTag(r.threeD)+'</td></tr>').join('');
+    html+='<div class="tbl-wrap"><table><thead><tr><th>點號</th><th>測量區塊</th><th>測站</th><th>GPS 來源</th><th>ΔE（m）</th><th>ΔN（m）</th><th>ΔH（m）</th><th>水平 2D（m）</th><th>3D（m）</th></tr></thead><tbody>';
+    html+=list.map(r=>'<tr><td>'+escHtml(r.name)+'</td><td>'+escHtml(r.blockId||'—')+'</td><td>'+escHtml(r.stations.join('、'))+'</td><td>'+escHtml(r.sources.join('、')||'—')+'</td>'+[r.dE,r.dN,r.dH,r.horizontal].map(v=>'<td>'+fmtNum(v)+'</td>').join('')+'<td>'+rmsTag(r.threeD)+'</td></tr>').join('');
     html+='</tbody></table></div>';
   }
   html+='<p style="margin-top:10px">超限是檢核提示，不代表 GPS 必然錯誤。先比較各站內部吻合與 GPS 水平／高程差，核對點號、原始觀測及控制幾何，再決定是否停用該筆 GPS；改動後須重新計算並保留足夠控制點。</p>';
@@ -1257,8 +1261,8 @@ function buildHighResidualsHtml(results,interactive=true){
 }
 function downloadHighResiduals(){
   const data=window._lastReportData;if(!data)return;
-  const rows=collectHighResiduals(data.results), header=['Mode','Type','Point','Stations','GPS_sources','dE_m','dN_m','dH_m','Horizontal_2D_m','Residual_3D_m'];
-  const values=[...rows.gps,...rows.edm].map(r=>[data.adjustmentMode||'joint',r.kind,r.name,r.stations.join(';'),r.sources.join(';'),r.dE,r.dN,r.dH,r.horizontal,r.threeD]);
+  const rows=collectHighResiduals(data.results), header=['Mode','Type','Point','Block','Stations','GPS_sources','dE_m','dN_m','dH_m','Horizontal_2D_m','Residual_3D_m'];
+  const values=[...rows.gps,...rows.edm].map(r=>[data.adjustmentMode||'joint',r.kind,r.name,r.blockId||'',r.stations.join(';'),r.sources.join(';'),r.dE,r.dN,r.dH,r.horizontal,r.threeD]);
   downloadTextFile('TraverseLink_'+(data.adjustmentMode||'joint')+'_residuals_gt_0.020m.csv','\ufeff'+[header,...values].map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
 }
 
@@ -1335,27 +1339,28 @@ function renderResults(results, iterLog, failedStns, adjLog=[], closures=[], gen
     if(!r) return;
     const sname=stations[si].name;
     r.pts.forEach(p=>{
-      if(!mmap[p.name]){
-        mmap[p.name]={E:p.joint?.E??p.E,N:p.joint?.N??p.N,H:p.joint?.H??p.H,attr:p.attr,tag:p.tag,stns:[sname]};
+      const key=p.blockId?JSON.stringify([p.blockId,p.name]):p.name;
+      if(!mmap[key]){
+        mmap[key]={pointName:p.name,blockId:p.blockId,E:p.joint?.E??p.E,N:p.joint?.N??p.N,H:p.joint?.H??p.H,attr:p.attr,tag:p.tag,stns:[sname]};
       } else {
-        if(!mmap[p.name].stns.includes(sname)) mmap[p.name].stns.push(sname);
-        mmap[p.name].E=p.joint?.E??p.E; mmap[p.name].N=p.joint?.N??p.N; mmap[p.name].H=p.joint?.H??p.H;
-        if(p.tag==='gps') mmap[p.name].tag='gps';
-        else if(p.tag==='shared'&&mmap[p.name].tag==='new') mmap[p.name].tag='shared';
-        if(p.attr&&!mmap[p.name].attr) mmap[p.name].attr=p.attr;
+        if(!mmap[key].stns.includes(sname)) mmap[key].stns.push(sname);
+        mmap[key].E=p.joint?.E??p.E; mmap[key].N=p.joint?.N??p.N; mmap[key].H=p.joint?.H??p.H;
+        if(p.tag==='gps') mmap[key].tag='gps';
+        else if(p.tag==='shared'&&mmap[key].tag==='new') mmap[key].tag='shared';
+        if(p.attr&&!mmap[key].attr) mmap[key].attr=p.attr;
       }
     });
   });
   addGpsOnlyPointsToMerge(mmap);
-  const mpts=Object.entries(mmap);
+  const mpts=Object.entries(mmap).map(([key,p])=>[p.pointName??key,p]);
   const dupCnt=mpts.filter(([,v])=>v.stns.length>1).length;
 
   html+=`<div class="card">
     <div class="sec-title" style="font-size:15px">合併結果（所有站）
-      <span class="badge b-green">共 ${mpts.length} 個唯一點位</span>
+      <span class="badge b-green">共 ${mpts.length} 筆成果點位</span>
       ${dupCnt>0?`<span class="badge b-amber">重複點名已合併 ${dupCnt} 個</span>`:''}
     </div>
-    <div class="info-box">同名點合併為一列，使用本次平差的聯合座標；「出現站」列出來源測站。</div>
+    <div class="info-box">同區塊同名點合併為一列，使用本次平差的聯合座標；不同測量區塊保留各自成果；「出現站」列出區塊與來源測站。</div>
     <div class="tbl-wrap"><table class="merged">
       <thead><tr><th>點名</th><th>屬性</th>
       <th>E 絕對座標</th><th>N 絕對座標</th><th>H 高程</th>
@@ -1691,7 +1696,7 @@ function downloadMergedCsv(){
       `${p.E.toFixed(3)},${p.N.toFixed(3)}`,
       `${wLat.toFixed(6)},${wLon.toFixed(6)}`,
       type,
-      p.stns.join('、')
+      (p.blockId?'['+p.blockId+'] ':'')+p.stns.join('、')
     ]);
   });
   const csv='\ufeff'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
@@ -1758,7 +1763,7 @@ function buildReportHtml(data){
       <td>${escHtml(name)}</td><td>${escHtml(p.attr||'—')}</td>
       <td>${fmtNum(p.E)}</td><td>${fmtNum(p.N)}</td><td>${fmtNum(p.H)}</td>
       <td>${p.E.toFixed(3)},${p.N.toFixed(3)}</td><td>${lat.toFixed(6)},${lon.toFixed(6)}</td>
-      <td>${type}</td><td>${escHtml(p.stns.join('、'))}</td>
+      <td>${type}</td><td>${escHtml((p.blockId?'['+p.blockId+'] ':'')+p.stns.join('、'))}</td>
     </tr>`;
   }).join('');
 
@@ -1910,7 +1915,7 @@ function renderMap(mpts,lon0Deg){
       `<b>N</b> ${p.N.toFixed(3)}<br>`+
       `<b>H</b> ${p.H.toFixed(3)}`+
       (p.attr?`<br><b>屬性</b> ${p.attr}`:'')+
-      `<br><b>出現站</b> ${p.stns.join('、')}`
+      `<br><b>出現站</b> ${(p.blockId?'['+p.blockId+'] ':'')+p.stns.join('、')}`
     );
     if(p.tag==='gps') gpsEdmGroup.addLayer(mk);
     else if(p.tag==='gps-only') gpsOnlyGroup.addLayer(mk);
