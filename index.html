@@ -1036,10 +1036,11 @@ function calculateGeometryAdjustment(){
     const rows=stations.map(s=>parsePaste(s.localPasteText).map(p=>({name:p.name,lx:Number(p.lx),ly:Number(p.ly),lz:Number(p.lz),attr:p.attr||''})));
     const names=rows.map(ps=>new Set(ps.map(p=>p.name)));
     // Station order defines blocks: only an adjacent pair with >=2 distinct
-    // common point names connects. Later stations never bridge a previous break.
+    // non-GPS common point names connects. GPS controls never join blocks.
+    // Later stations never bridge a previous break.
     const groups=[];
     for(let i=0;i<stations.length;i++){
-      const common=i?[...names[i-1]].filter(name=>names[i].has(name)).length:0;
+      const common=i?[...names[i-1]].filter(name=>names[i].has(name)&&!gps[name]).length:0;
       if(i===0||common<2)groups.push([]);
       groups[groups.length-1].push(i);
     }
@@ -1049,7 +1050,7 @@ function calculateGeometryAdjustment(){
       const blockId='B'+(components.length+1), owners=new Map();
       group.forEach(i=>names[i].forEach(name=>{if(!owners.has(name))owners.set(name,[]);owners.get(name).push(i);}));
       const previous=group[0]-1;
-      const boundaryCommon=previous>=0?[...names[previous]].filter(name=>names[group[0]].has(name)).length:null;
+      const boundaryCommon=previous>=0?[...names[previous]].filter(name=>names[group[0]].has(name)&&!gps[name]).length:null;
       const component={blockId,boundaryCommon,stationIndices:[...group],stations:group.map(i=>stations[i].name),status:'failed',converged:false,scale:1};
       components.push(component);
       const fail=message=>{component.message=message;adjLog.push('<span class="err">'+escHtml(component.stations.join('、')+'：'+message)+'</span>');};
@@ -1158,7 +1159,7 @@ function setAdjustmentMode(mode){
 function buildAdjustmentModeHtml(mode,info){
   const intro='<section class="mode-summary" aria-label="本次計算模式"><h2>計算模式：'+adjustmentModeLabel(mode)+'</h2>';
   if(mode==='joint')return intro+'</section>';
-  return intro+(info?.components?'<div class="tbl-wrap"><table><thead><tr><th>聯測群組／獨立站</th><th>狀態</th><th>GPS 套合 RMS 3D（m）</th></tr></thead><tbody>'+info.components.map(g=>'<tr><td>'+escHtml((g.blockId?'測量區塊 '+g.blockId+'：':'')+g.stations.join('、')+(g.boundaryCommon!=null?'（與前站共同點 '+g.boundaryCommon+' 個）':''))+'</td><td>'+escHtml(g.status==='ok'?'完成；K＝1':g.message)+'</td><td>'+(g.status==='ok'?rmsTag(g.gpsRms3D):'—')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</section>';
+  return intro+(info?.components?'<div class="tbl-wrap"><table><thead><tr><th>聯測群組／獨立站</th><th>狀態</th><th>GPS 套合 RMS 3D（m）</th></tr></thead><tbody>'+info.components.map(g=>'<tr><td>'+escHtml((g.blockId?'測量區塊 '+g.blockId+'：':'')+g.stations.join('、')+(g.boundaryCommon!=null?'（與前站非 GPS 共同點 '+g.boundaryCommon+' 個）':''))+'</td><td>'+escHtml(g.status==='ok'?'完成；K＝1':g.message)+'</td><td>'+(g.status==='ok'?rmsTag(g.gpsRms3D):'—')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</section>';
 }
 
 function buildCalculationLogHtml(iterLog,adjLog){
