@@ -1072,7 +1072,7 @@ function calculateGeometryAdjustment(){
         progress=false;
         for(const i of group){
           if(poses.has(i))continue;
-          const controls=rows[i].filter(p=>points[p.name]).map(p=>({...p,gE:points[p.name].E,gN:points[p.name].N,gH:points[p.name].H}));
+          const controls=rows[i].filter(p=>!gps[p.name]&&points[p.name]).map(p=>({...p,gE:points[p.name].E,gN:points[p.name].N,gH:points[p.name].H}));
           const fit=helmert(controls);
           if(fit){poses.set(i,fit);points=consensus();progress=true;}
         }
@@ -1084,7 +1084,7 @@ function calculateGeometryAdjustment(){
         let movement=0;
         for(const i of group){
           if(i===root)continue;
-          const controls=rows[i].filter(p=>owners.get(p.name).length>1).map(p=>({...p,gE:points[p.name].E,gN:points[p.name].N,gH:points[p.name].H}));
+          const controls=rows[i].filter(p=>!gps[p.name]&&owners.get(p.name).length>1).map(p=>({...p,gE:points[p.name].E,gN:points[p.name].N,gH:points[p.name].H}));
           const fit=helmert(controls);
           if(!fit)continue;
           for(const p of rows[i]){const a=transform(p,poses.get(i)),b=transform(p,fit);movement=Math.max(movement,Math.hypot(a.E-b.E,a.N-b.N,a.H-b.H));}
@@ -1099,6 +1099,7 @@ function calculateGeometryAdjustment(){
       // These coordinates have been solved without GPS. Fit each unique control once.
       const controls=Object.entries(points).filter(([name])=>gps[name]).map(([name,p])=>({name,lx:p.E,ly:p.N,lz:p.H,gE:gps[name].E,gN:gps[name].N,gH:gps[name].H}));
       component.gpsCount=controls.length;
+      component.gpsPointNames=controls.map(p=>p.name);
       const fit=helmert(controls);
       if(!fit){fail('本群組缺少至少兩個可定向的 GPS 控制點，無法以 K＝1 套合至世界座標。');continue;}
       component.status='ok';component.gpsRms3D=fit.rms3D;component.gpsFit=fit;
@@ -1131,7 +1132,7 @@ function calculateGeometryAdjustment(){
     const closures=[];
     results.forEach((r,i)=>{if(!r)return;for(let j=i+1;j<results.length;j++){
       const other=results[j];if(!other||r.blockId!==other.blockId)continue;
-      const map=new Map(other.pts.map(p=>[p.name,p])), common=r.pts.filter(p=>map.has(p.name));if(!common.length)continue;
+      const map=new Map(other.pts.map(p=>[p.name,p])), common=r.pts.filter(p=>!gps[p.name]&&map.has(p.name));if(!common.length)continue;
       const delta=common.map(p=>{const q=map.get(p.name);return {E:q.E-p.E,N:q.N-p.N,H:q.H-p.H};});
       closures.push({fromName:stations[i].name,toName:stations[j].name,relayNames:[],commonPts:common.map(p=>p.name),
         dE:delta.reduce((v,p)=>v+p.E,0)/delta.length,dN:delta.reduce((v,p)=>v+p.N,0)/delta.length,dH:delta.reduce((v,p)=>v+p.H,0)/delta.length,
@@ -1159,7 +1160,7 @@ function setAdjustmentMode(mode){
 function buildAdjustmentModeHtml(mode,info){
   const intro='<section class="mode-summary" aria-label="本次計算模式"><h2>計算模式：'+adjustmentModeLabel(mode)+'</h2>';
   if(mode==='joint')return intro+'</section>';
-  return intro+(info?.components?'<div class="tbl-wrap"><table><thead><tr><th>聯測群組／獨立站</th><th>狀態</th><th>GPS 套合 RMS 3D（m）</th></tr></thead><tbody>'+info.components.map(g=>'<tr><td>'+escHtml((g.blockId?'測量區塊 '+g.blockId+'：':'')+g.stations.join('、')+(g.boundaryCommon!=null?'（與前站非 GPS 共同點 '+g.boundaryCommon+' 個）':''))+'</td><td>'+escHtml(g.status==='ok'?'完成；K＝1':g.message)+'</td><td>'+(g.status==='ok'?rmsTag(g.gpsRms3D):'—')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</section>';
+  return intro+(info?.components?'<div class="tbl-wrap"><table><thead><tr><th>聯測群組／獨立站</th><th>狀態</th><th>套合用 GPS 控制點</th><th>GPS 套合 RMS 3D（m）</th></tr></thead><tbody>'+info.components.map(g=>'<tr><td>'+escHtml((g.blockId?'測量區塊 '+g.blockId+'：':'')+g.stations.join('、')+(g.boundaryCommon!=null?'（與前站非 GPS 共同點 '+g.boundaryCommon+' 個）':''))+'</td><td>'+escHtml(g.status==='ok'?'完成；K＝1':g.message)+'</td><td>'+escHtml((g.gpsPointNames||[]).join('、')||'—')+'</td><td>'+(g.status==='ok'?rmsTag(g.gpsRms3D):'—')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</section>';
 }
 
 function buildCalculationLogHtml(iterLog,adjLog){
