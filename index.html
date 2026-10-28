@@ -725,17 +725,10 @@ function updateRunButtonState(){
 }
 function stationBlockLayout(nameSets=stations.map(s=>new Set(parsePaste(s.localPasteText).map(p=>p.name)))){
   const groups=[],links=[],blockIds=[];
-  const sets=gpsCoordinateSets(projectGpsText||'');
-  const previousScale=scaleMode;scaleMode='fixed';
-  let oriented;
-  try{oriented=stations.map(st=>{const rows=parsePaste(st.localPasteText);if(new Set(rows.map(p=>p.name)).size!==rows.length||rows.some(p=>![p.lx,p.ly,p.lz].every(v=>Number.isFinite(Number(v)))))return false;return !!helmert(rows.filter(p=>sets[p.name]?.size===1).map(p=>{
-    const g=JSON.parse([...sets[p.name]][0]);
-    return {...p,lx:Number(p.lx),ly:Number(p.ly),lz:Number(p.lz),gE:g[0],gN:g[1],gH:g[2]};
-  }));});}finally{scaleMode=previousScale;}
   for(let i=0;i<nameSets.length;i++){
     const common=i?[...nameSets[i-1]].filter(name=>nameSets[i].has(name)):[];
     links.push(common);
-    if(i===0||common.length===0||(common.length===1&&!(oriented[i-1]&&oriented[i])))groups.push([]);
+    if(i===0||common.length<2)groups.push([]);
     groups[groups.length-1].push(i);blockIds.push('B'+groups.length);
   }
   return {groups,links,blockIds};
@@ -1048,7 +1041,6 @@ function calculateGeometryAdjustment(){
     const results=stations.map(()=>null), components=[], adjLog=[];
     const transform=(p,h)=>({E:h.a*p.lx-h.b*p.ly+h.tx,N:h.b*p.lx+h.a*p.ly+h.ty,H:p.lz+h.dz});
     for(const group of groups){
-      const jointGps=group.some((i,k)=>k>0&&links[i].length===1);
       const blockId='B'+(components.length+1), owners=new Map();
       group.forEach(i=>names[i].forEach(name=>{if(!owners.has(name))owners.set(name,[]);owners.get(name).push(i);}));
       const previous=group[0]-1;
@@ -1061,23 +1053,12 @@ function calculateGeometryAdjustment(){
       }
       const poses=new Map(), root=group[0], origin=rows[root][0];
       poses.set(root,{a:1,b:0,tx:-origin.lx,ty:-origin.ly,dz:-origin.lz,kz:1,scale:1});
-      if(jointGps){
-        poses.clear();
-        group.forEach(i=>{
-          const h=helmert(rows[i].filter(p=>gps[p.name]).map(p=>({...p,gE:gps[p.name].E,gN:gps[p.name].N,gH:gps[p.name].H})));
-          if(h)poses.set(i,h);
-        });
-        component.weightMode='equal-observations';component.method='gps-constrained-single-tie';
-      }
       function consensus(){
         const sums=Object.create(null);
         poses.forEach((h,i)=>rows[i].forEach(p=>{
           const v=transform(p,h), s=sums[p.name]||(sums[p.name]={E:0,N:0,H:0,n:0});
           s.E+=v.E;s.N+=v.N;s.H+=v.H;s.n++;
         }));
-        if(jointGps)for(const [name,v] of Object.entries(sums))if(gps[name]){
-          v.E+=gps[name].E;v.N+=gps[name].N;v.H+=gps[name].H;v.n++;
-        }
         return Object.fromEntries(Object.entries(sums).map(([name,p])=>[name,{E:p.E/p.n,N:p.N/p.n,H:p.H/p.n}]));
       }
       let points=consensus(), progress=true;
@@ -1094,7 +1075,7 @@ function calculateGeometryAdjustment(){
       const initialPoses=new Map([...poses].map(([i,h])=>[i,{...h}]));
       // Solve all station poses together. Eliminating each shared point gives
       // pairwise residuals weighted by 1 / observation count (the same LS objective).
-      const variables=group.filter(i=>jointGps||i!==root), offsets=new Map(variables.map((i,k)=>[i,4*k]));
+      const variables=group.filter(i=>i!==root), offsets=new Map(variables.map((i,k)=>[i,4*k]));
       const dimension=4*variables.length;
       function solveNormal(matrix,rhs){
         const a=matrix.map((row,i)=>[...row,rhs[i]]);
@@ -1121,18 +1102,15 @@ function calculateGeometryAdjustment(){
         if(!observations.has(p.name))observations.set(p.name,[]);
         observations.get(p.name).push({i,p});
       }));
-      // Eliminate latent points with equal weights; count each GPS coordinate once.
-      if(jointGps)for(const [name,obs] of observations)if(gps[name])obs.push({i:-1,p:gps[name]});
-      const observedPosition=o=>o.i===-1?o.p:transform(o.p,poses.get(o.i));
       let converged=group.length===1, iterations=0;
       for(;!converged&&iterations<100;iterations++){
         const normal=Array.from({length:dimension},()=>Array(dimension).fill(0)), rhs=Array(dimension).fill(0);
         for(const obs of observations.values())for(let u=0;u<obs.length;u++)for(let v=u+1;v<obs.length;v++){
-          const left=obs[u],right=obs[v], l=observedPosition(left),r=observedPosition(right);
+          const left=obs[u],right=obs[v], l=transform(left.p,poses.get(left.i)),r=transform(right.p,poses.get(right.i));
           for(const axis of ['E','N','H']){
             const jac=[];
             for(const [o,sign] of [[left,1],[right,-1]]){
-              if(o.i===-1||(!jointGps&&o.i===root))continue;
+              if(o.i===root)continue;
               const h=poses.get(o.i),k=offsets.get(o.i);
               if(axis==='E'){jac.push([k,sign*(-h.b*o.p.lx-h.a*o.p.ly)],[k+1,sign]);}
               else if(axis==='N'){jac.push([k,sign*(h.a*o.p.lx-h.b*o.p.ly)],[k+2,sign]);}
@@ -1166,17 +1144,6 @@ function calculateGeometryAdjustment(){
       component.gpsPointNames=controls.map(p=>p.name);
       const fit=helmert(controls);
       if(!fit){fail('本群組缺少至少兩個可定向的 GPS 控制點，無法以 K＝1 套合至世界座標。');continue;}
-      if(jointGps){
-        for(const [axis,local] of [['E','x'],['N','y'],['H','z']])fit['rms'+axis]=Math.sqrt(controls.reduce((sum,p)=>sum+(p['l'+local]-p['g'+axis])**2,0)/controls.length);
-        for(const [axis,local] of [['E','x'],['N','y'],['H','z']]){
-          const values=controls.map(p=>p['l'+local]-p['g'+axis]),mean=values.reduce((a,b)=>a+b,0)/values.length;
-          fit['sd'+axis]=Math.sqrt(values.reduce((sum,v)=>sum+(v-mean)**2,0)/Math.max(values.length-1,1));
-        }
-        fit.sd2D=Math.hypot(fit.sdE,fit.sdN);fit.sd3D=Math.hypot(fit.sd2D,fit.sdH);
-        fit.rms2D=Math.hypot(fit.rmsE,fit.rmsN);fit.rms3D=Math.hypot(fit.rms2D,fit.rmsH);
-        Object.assign(fit,{a:1,b:0,tx:0,ty:0,dz:0,rot:0});
-        adjLog.push('<span class="ok">'+escHtml(component.stations.join('、'))+'：單一共通點聯合平差；兩側各有 GPS 定向，GPS 與測站座標觀測採等權重，每個 GPS 點只計一次。請檢查共通點與 GPS 殘差。</span>');
-      }
       component.status='ok';component.gpsRms3D=fit.rms3D;component.gpsFit=fit;
       component.internalPoints=JSON.parse(JSON.stringify(points));
       const absolute=p=>transform({lx:p.E,ly:p.N,lz:p.H},fit);
@@ -1203,10 +1170,10 @@ function calculateGeometryAdjustment(){
         if(!internal.length)for(const key of ['rmsE','rmsN','rmsH','rms2D','rms3D','sdE','sdN','sdH','sd2D','sd3D'])hp[key]=null;
         const internalQuality=Object.fromEntries(["rmsE","rmsN","rmsH","rms2D","rms3D","sdE","sdN","sdH","sd2D","sd3D"].map(key=>[key,hp[key]]));
         if(group.length===1)for(const key of ["rmsE","rmsN","rmsH","rms2D","rms3D","sdE","sdN","sdH","sd2D","sd3D"])hp[key]=fit[key];
-        results[i]={hp,pts,internalQuality,qualityBasis:group.length===1?'gps-fit':'internal',internalCheckCount:internal.length,blockId,gpsFitRms3D:component.gpsRms3D,sharedNames:check.map(p=>p.name),jointAdjustment:{converged:true,iterations,weightMode:jointGps?'equal-observations':'geometry-first'},
+        results[i]={hp,pts,internalQuality,qualityBasis:group.length===1?'gps-fit':'internal',internalCheckCount:internal.length,blockId,gpsFitRms3D:component.gpsRms3D,sharedNames:check.map(p=>p.name),jointAdjustment:{converged:true,iterations,weightMode:'geometry-first'},
           adjApplied:{corrE:pts.reduce((v,p)=>v+p.adj.corrE,0)/pts.length,corrN:pts.reduce((v,p)=>v+p.adj.corrN,0)/pts.length,corrH:pts.reduce((v,p)=>v+p.adj.corrH,0)/pts.length}};
       }
-      if(!jointGps)adjLog.push('<span class="ok">'+escHtml(component.stations.join('、'))+'：先聯測，再以 K＝1 整體套合 '+controls.length+' 個 GPS；GPS 套合 RMS 3D＝'+fit.rms3D.toFixed(4)+' m（與內部聯測殘差分開判讀）。</span>');
+      adjLog.push('<span class="ok">'+escHtml(component.stations.join('、'))+'：先聯測，再以 K＝1 整體套合 '+controls.length+' 個 GPS；GPS 套合 RMS 3D＝'+fit.rms3D.toFixed(4)+' m（與內部聯測殘差分開判讀）。</span>');
     }
     const closures=[];
     results.forEach((r,i)=>{if(!r)return;for(let j=i+1;j<results.length;j++){
@@ -1225,7 +1192,7 @@ function calculateGeometryAdjustment(){
 function adjustmentModeLabel(){return '區塊平差（K＝1）';}
 function buildAdjustmentModeHtml(mode,info){
   const intro='<section class="mode-summary" aria-label="本次計算模式"><h2>平差流程：'+adjustmentModeLabel(mode)+'</h2><p>平面基準：'+escHtml(surveyReference.horizontal||'尚未確認')+'；高程基準：'+escHtml(surveyReference.vertical||'尚未確認')+'；單位：公尺。</p>';
-  return intro+(info?.components?'<div class="tbl-wrap"><table><thead><tr><th>聯測群組／獨立站</th><th>狀態</th><th>套合用 GPS 控制點</th><th>GPS 套合 RMS 3D（m）</th></tr></thead><tbody>'+info.components.map(g=>'<tr><td>'+escHtml((g.blockId?'測量區塊 '+g.blockId+'：':'')+g.stations.join('、')+(g.boundaryCommon!=null?'（與前站全測站共同點 '+g.boundaryCommon+' 個）':''))+'</td><td>'+escHtml(g.status==='ok'&&g.method==='gps-constrained-single-tie'?'單點聯合平差；K＝1；GPS／測站等權重':g.status==='ok'?'完成；K＝1':g.message)+'</td><td>'+escHtml((g.gpsPointNames||[]).join('、')||'—')+'</td><td>'+(g.status==='ok'?rmsTag(g.gpsRms3D):'—')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</section>';
+  return intro+(info?.components?'<div class="tbl-wrap"><table><thead><tr><th>聯測群組／獨立站</th><th>狀態</th><th>套合用 GPS 控制點</th><th>GPS 套合 RMS 3D（m）</th></tr></thead><tbody>'+info.components.map(g=>'<tr><td>'+escHtml((g.blockId?'測量區塊 '+g.blockId+'：':'')+g.stations.join('、')+(g.boundaryCommon!=null?'（與前站全測站共同點 '+g.boundaryCommon+' 個）':''))+'</td><td>'+escHtml(g.status==='ok'?'完成；K＝1':g.message)+'</td><td>'+escHtml((g.gpsPointNames||[]).join('、')||'—')+'</td><td>'+(g.status==='ok'?rmsTag(g.gpsRms3D):'—')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</section>';
 }
 
 function buildCalculationLogHtml(iterLog,adjLog){
@@ -1238,7 +1205,7 @@ function runAll(){
   saveAll();adjustmentMode='geometry';scaleMode='fixed';
   const output=calculateGeometryAdjustment();
   window._adjustmentInfo={mode:'geometry',components:output.components};
-  const log=[{round:1,items:output.components.map(g=>'<span class="'+(g.status==='ok'?'ok':'err')+'">'+escHtml(g.stations.join('、')+'：'+(g.status==='ok'?(g.method==='gps-constrained-single-tie'?'單點 GPS 約束聯合平差':g.stations.length===1?'獨立站與 GPS 套合':'內部聯測後整區塊套合 GPS')+'（K＝1）':g.message))+'</span>')}];
+  const log=[{round:1,items:output.components.map(g=>'<span class="'+(g.status==='ok'?'ok':'err')+'">'+escHtml(g.stations.join('、')+'：'+(g.status==='ok'?(g.stations.length===1?'獨立站與 GPS 套合':'內部聯測後整區塊套合 GPS')+'（K＝1）':g.message))+'</span>')}];
   resultNeedsRecalculation=false;
   renderResults(output.results,log,stations.filter((_,i)=>!output.results[i]).map(s=>s.name),output.adjLog,output.closures);
 }
